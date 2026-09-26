@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>CANTINE DATA — Suivi National des Cantines Scolaires</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: {
+                primary: { 50:'#f0f9ff',100:'#e0f2fe',500:'#0284c7',600:'#0284c7',700:'#0369a1',800:'#075985',900:'#0c4a6e' }
+            } } }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="h-full text-slate-800 bg-slate-50 antialiased">
+
+    <!-- ============================================================ -->
+    <!-- CONFIG SUPABASE — À REMPLIR AVANT UTILISATION                -->
+    <!-- ============================================================ -->
+    <script>
+        const SUPABASE_CONFIG = {
+            url: "https://bvmojrvakqpzsmcqpcgo.supabase.co",       // Ex: https://xxxxx.supabase.co
+            anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bW9qcnZha3FwenNtY3FwY2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzODY1MDEsImV4cCI6MjEwNTk2MjUwMX0.C7IHOHOCuTf5VsfGKCC933T1-STus5xTvt7WCWz0ro0"  // Settings > API > anon public
+        };
+    </script>
+
+    <!-- ÉCRAN : CONFIGURATION MANQUANTE -->
+    <div id="configMissingScreen" class="hidden min-h-screen flex items-center justify-center p-6">
+        <div class="max-w-md bg-white border border-amber-200 rounded-2xl shadow-sm p-6 text-center space-y-3">
+            <i class="fa-solid fa-plug-circle-exclamation text-3xl text-amber-500"></i>
+            <h1 class="font-bold text-lg text-slate-900">Configuration Supabase manquante</h1>
+            <p class="text-sm text-slate-600">Ouvrez ce fichier dans un éditeur de texte, repérez le bloc <code class="bg-slate-100 px-1 rounded">SUPABASE_CONFIG</code> en haut du code, et collez-y l'URL de votre projet et votre clé publique <code class="bg-slate-100 px-1 rounded">anon</code> (visibles dans Supabase &gt; Project Settings &gt; API).</p>
+        </div>
+    </div>
+
+    <!-- ÉCRAN : CHARGEMENT -->
+    <div id="loadingScreen" class="min-h-screen flex items-center justify-center">
+        <div class="text-center space-y-3">
+            <i class="fa-solid fa-utensils text-3xl text-primary-600 animate-pulse"></i>
+            <p class="text-sm text-slate-500 font-medium">Connexion à la base…</p>
+        </div>
+    </div>
+
+    <!-- ÉCRAN : ERREUR DE CONNEXION (diagnostic) -->
+    <div id="connectionErrorScreen" class="hidden min-h-screen flex items-center justify-center p-6">
+        <div class="max-w-lg bg-white border border-rose-200 rounded-2xl shadow-sm p-6 space-y-3 text-sm">
+            <i class="fa-solid fa-triangle-exclamation text-3xl text-rose-500"></i>
+            <h1 class="font-bold text-lg text-slate-900">Impossible de contacter Supabase</h1>
+            <p class="text-slate-600">La connexion n'a pas répondu après 8 secondes. Vérifiez, dans l'ordre :</p>
+            <ul class="list-disc list-inside text-slate-600 space-y-1 text-xs">
+                <li>Que <code class="bg-slate-100 px-1 rounded">SUPABASE_CONFIG.url</code> commence bien par <code class="bg-slate-100 px-1 rounded">https://</code> et se termine par <code class="bg-slate-100 px-1 rounded">.supabase.co</code> (sans espace ni guillemet en trop)</li>
+                <li>Que la clé <code class="bg-slate-100 px-1 rounded">anonKey</code> collée est bien celle intitulée <strong>anon public</strong> (pas <em>service_role</em>)</li>
+                <li>Que votre projet Supabase est bien actif (pas en pause)</li>
+                <li>Que l'environnement d'aperçu (StackBlitz, etc.) autorise les requêtes réseau sortantes — testez en ouvrant le fichier directement dans un navigateur ou via <a href="https://app.netlify.com/drop" target="_blank" class="text-primary-600 underline">Netlify Drop</a> pour écarter ce point</li>
+            </ul>
+            <p class="text-[11px] text-slate-400 font-mono break-all" id="connectionErrorDetail"></p>
+            <button onclick="location.reload()" class="mt-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold">Réessayer</button>
+        </div>
+    </div>
+
+    <!-- ÉCRAN : AUTHENTIFICATION -->
+    <div id="authScreen" class="hidden min-h-screen flex items-center justify-center p-4">
+        <div class="max-w-sm w-full bg-white rounded-2xl shadow-lg border border-slate-200 p-6 space-y-5">
+            <div class="text-center">
+                <div class="w-12 h-12 mx-auto rounded-xl bg-gradient-to-tr from-emerald-600 via-green-500 to-amber-400 flex items-center justify-center text-white text-xl mb-2">
+                    <i class="fa-solid fa-utensils"></i>
+                </div>
+                <h1 class="font-bold text-lg text-slate-900">CANTINE DATA</h1>
+                <p class="text-xs text-slate-500">Suivi National des Cantines Scolaires</p>
+            </div>
+
+            <div id="authTabs" class="flex bg-slate-100 rounded-xl p-1 text-xs font-bold">
+                <button id="tabLogin" onclick="ui.setAuthTab('login')" class="flex-1 py-2 rounded-lg">Connexion</button>
+                <button id="tabSignup" onclick="ui.setAuthTab('signup')" class="flex-1 py-2 rounded-lg">Créer un compte</button>
+            </div>
+
+            <div id="authErrorBox" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs p-2.5 rounded-lg"></div>
+            <div id="authInfoBox" class="hidden bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-2.5 rounded-lg"></div>
+
+            <!-- LOGIN -->
+            <form id="loginForm" onsubmit="auth.handleLogin(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Email</label>
+                    <input type="email" id="loginEmail" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Mot de passe</label>
+                    <input type="password" id="loginPassword" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm rounded-lg">Se connecter</button>
+            </form>
+
+            <!-- SIGNUP -->
+            <form id="signupForm" onsubmit="auth.handleSignup(event)" class="space-y-3 hidden">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Prénom</label>
+                        <input type="text" id="signupFirstname" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Nom</label>
+                        <input type="text" id="signupName" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Email</label>
+                    <input type="email" id="signupEmail" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Mot de passe (6 caractères min.)</label>
+                    <input type="password" id="signupPassword" required minlength="6" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-lg">Créer mon compte</button>
+                <p class="text-[11px] text-slate-400 text-center">Après inscription, un administrateur devra vous affecter un rôle et une école avant que vous puissiez saisir des données.</p>
+            </form>
+        </div>
+    </div>
+
+    <!-- ÉCRAN : COMPTE EN ATTENTE D'AFFECTATION -->
+    <div id="pendingScreen" class="hidden min-h-screen flex items-center justify-center p-6">
+        <div class="max-w-md bg-white border border-amber-200 rounded-2xl shadow-sm p-6 text-center space-y-3">
+            <i class="fa-solid fa-hourglass-half text-3xl text-amber-500"></i>
+            <h1 class="font-bold text-lg text-slate-900">Compte en attente d'affectation</h1>
+            <p class="text-sm text-slate-600">Votre compte a bien été créé, mais un administrateur doit encore vous attribuer un rôle et une école avant que vous puissiez utiliser l'application.</p>
+            <button onclick="auth.logout()" class="text-xs font-bold text-slate-500 hover:text-slate-800">Se déconnecter</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- APPLICATION PRINCIPALE -->
+    <!-- ============================================================ -->
+    <div id="appRoot" class="hidden h-full flex flex-col">
+        <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40 shadow-md" style="padding-top:env(safe-area-inset-top,0px)">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 via-green-500 to-amber-400 flex items-center justify-center text-white font-bold text-xl">
+                        <i class="fa-solid fa-utensils"></i>
+                    </div>
+                    <div>
+                        <span class="text-lg font-bold tracking-tight flex items-center gap-2">CANTINE DATA
+                            <span class="text-[10px] uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">Supabase</span>
+                        </span>
+                        <p class="text-xs text-slate-400 hidden sm:block" id="headerCampaignName">Aucune campagne active</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs font-bold" id="userBadgeName">-</p>
+                        <p class="text-[10px] text-slate-400" id="userBadgeRole">-</p>
+                    </div>
+                    <button onclick="auth.logout()" title="Déconnexion" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row gap-6">
+            <aside class="w-full md:w-64 flex-shrink-0">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-3 sticky top-20">
+                    <nav class="space-y-1 text-sm font-medium" id="sidebarNav"></nav>
+                </div>
+            </aside>
+
+            <main class="flex-1 min-w-0">
+                <div id="globalNotificationArea" class="mb-4"></div>
+
+                <!-- VUE : SAISIE -->
+                <section id="view-form" class="app-view hidden">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Saisie du Point Cantine</h2>
+                            <p class="text-xs text-slate-500" id="formCampaignSubtext">-</p>
+                        </div>
+                        <form id="collecteForm" onsubmit="app.handleFormSubmit(event)" class="space-y-6">
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2">
+                                <label class="block text-xs font-bold text-slate-700 uppercase">Établissement</label>
+                                <select id="formSchoolSelect" onchange="app.onSchoolChange(this.value)" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-semibold"></select>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="block text-sm font-bold text-slate-800">1. L'école est-elle ouverte aujourd'hui ?</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <button type="button" id="btnSchoolOpenYes" onclick="app.setSchoolOpen(true)" class="py-3 rounded-xl font-bold text-sm border-2 border-slate-200 text-slate-700">OUI</button>
+                                    <button type="button" id="btnSchoolOpenNo" onclick="app.setSchoolOpen(false)" class="py-3 rounded-xl font-bold text-sm border-2 border-slate-200 text-slate-700">NON</button>
+                                </div>
+                            </div>
+
+                            <div id="canteenSection" class="space-y-2">
+                                <label class="block text-sm font-bold text-slate-800">2. La cantine a-t-elle fonctionné ?</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <button type="button" id="btnCanteenYes" onclick="app.setCanteenFunc(true)" class="py-3 rounded-xl font-bold text-sm border-2 border-slate-200 text-slate-700">OUI</button>
+                                    <button type="button" id="btnCanteenNo" onclick="app.setCanteenFunc(false)" class="py-3 rounded-xl font-bold text-sm border-2 border-slate-200 text-slate-700">NON</button>
+                                </div>
+                            </div>
+
+                            <div id="canteenReasonSection" class="bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-2 hidden">
+                                <label class="block text-xs font-bold text-amber-900 uppercase">Motif de non-fonctionnement</label>
+                                <select id="formReasonSelect" class="w-full bg-white border border-amber-300 rounded-lg p-2.5 text-sm">
+                                    <option value="">-- Sélectionner --</option>
+                                    <option>Rupture de vivres / Stock épuisé</option>
+                                    <option>Retard de livraison du fournisseur</option>
+                                    <option>Absence du cuisinier / Cuisinière</option>
+                                    <option>Manque d'eau potable ou combustible</option>
+                                    <option>Jour férié / Manifestation locale</option>
+                                    <option>Intempéries / Inondation</option>
+                                    <option>Autre raison</option>
+                                </select>
+                            </div>
+
+                            <div id="studentNumbersSection" class="space-y-4">
+                                <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl space-y-3">
+                                    <h3 class="text-xs font-bold uppercase text-blue-900">Élèves présents</h3>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div><label class="block text-xs text-slate-600 mb-1">Garçons</label><input type="number" min="0" id="formBoysPresent" oninput="app.recalcTotals()" class="w-full border rounded-lg p-2.5 text-center font-bold text-lg"></div>
+                                        <div><label class="block text-xs text-slate-600 mb-1">Filles</label><input type="number" min="0" id="formGirlsPresent" oninput="app.recalcTotals()" class="w-full border rounded-lg p-2.5 text-center font-bold text-lg"></div>
+                                    </div>
+                                    <div class="flex justify-between text-xs font-bold text-blue-900"><span>TOTAL :</span><span id="formTotalPresent">0</span></div>
+                                </div>
+                                <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-xl space-y-3">
+                                    <h3 class="text-xs font-bold uppercase text-emerald-900">Enfants nourris</h3>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div><label class="block text-xs text-slate-600 mb-1">Garçons</label><input type="number" min="0" id="formBoysFed" oninput="app.recalcTotals()" class="w-full border rounded-lg p-2.5 text-center font-bold text-lg"></div>
+                                        <div><label class="block text-xs text-slate-600 mb-1">Filles</label><input type="number" min="0" id="formGirlsFed" oninput="app.recalcTotals()" class="w-full border rounded-lg p-2.5 text-center font-bold text-lg"></div>
+                                    </div>
+                                    <div class="flex justify-between text-xs font-bold text-emerald-900"><span>TOTAL :</span><span id="formTotalFed">0</span></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Observations</label>
+                                <textarea id="formObservation" rows="2" class="w-full border rounded-lg p-2.5 text-xs"></textarea>
+                            </div>
+
+                            <div id="formValidationError" class="hidden bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800"></div>
+
+                            <button type="submit" id="btnSubmitForm" class="w-full py-3.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-base">
+                                <i class="fa-solid fa-paper-plane mr-1"></i> Transmettre le Point Cantine
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- VUE : DASHBOARD -->
+                <section id="view-dashboard" class="app-view hidden space-y-6">
+                    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-6 rounded-2xl text-white">
+                        <span class="text-xs uppercase font-bold text-emerald-400">Supervision Nationale</span>
+                        <h2 class="text-2xl font-black" id="dashCampaignTitle">-</h2>
+                    </div>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" id="dashboardKpis"></div>
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                        <h3 class="font-bold text-slate-900 text-sm mb-3">Statistique par Département</h3>
+                        <div class="overflow-x-auto"><table class="w-full text-left text-xs">
+                            <thead><tr class="bg-slate-50 text-slate-500 font-bold uppercase border-b">
+                                <th class="py-2 px-3">Département</th><th class="py-2 px-3 text-center">Écoles</th>
+                                <th class="py-2 px-3 text-center">Réponses</th><th class="py-2 px-3 text-center">Cantines Func.</th>
+                                <th class="py-2 px-3 text-right">Nourris</th>
+                            </tr></thead>
+                            <tbody id="deptStatsBody" class="divide-y"></tbody>
+                        </table></div>
+                    </div>
+                </section>
+
+                <!-- VUE : REGISTRE COLLECTES -->
+                <section id="view-collectes" class="app-view hidden space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                        <h2 class="text-xl font-bold text-slate-900">Registre des Collectes</h2>
+                        <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs">
+                            <thead><tr class="bg-slate-100 text-slate-600 font-bold uppercase border-b">
+                                <th class="py-3 px-3">École</th><th class="py-3 px-3 text-center">Ouverte</th>
+                                <th class="py-3 px-3 text-center">Cantine</th><th class="py-3 px-3 text-right">Présents</th>
+                                <th class="py-3 px-3 text-right">Nourris</th><th class="py-3 px-3 text-center">Statut</th>
+                                <th class="py-3 px-3 text-center">Action</th>
+                            </tr></thead>
+                            <tbody id="collectesTableBody" class="divide-y"></tbody>
+                        </table></div>
+                    </div>
+                </section>
+
+                <!-- VUE : NON-RÉPONDANTS -->
+                <section id="view-non-respondents" class="app-view hidden space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                        <h2 class="text-xl font-bold text-slate-900"><i class="fa-solid fa-clock-rotate-left text-amber-500"></i> Écoles Non-Répondantes</h2>
+                        <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs">
+                            <thead><tr class="bg-slate-100 text-slate-600 font-bold uppercase border-b">
+                                <th class="py-3 px-3">Code</th><th class="py-3 px-3">École</th><th class="py-3 px-3">Commune</th>
+                            </tr></thead>
+                            <tbody id="nonRespondentsBody" class="divide-y"></tbody>
+                        </table></div>
+                    </div>
+                </section>
+
+                <!-- VUE : GESTION ÉCOLES -->
+                <section id="view-schools" class="app-view hidden space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <h2 class="text-xl font-bold text-slate-900">Référentiel des Écoles</h2>
+                                <p class="text-xs text-slate-500" id="schoolsCountLabel">-</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="document.getElementById('excelImportInput').click()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl"><i class="fa-solid fa-file-excel"></i> Importer depuis Excel</button>
+                                <input type="file" id="excelImportInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="app.handleExcelImport(event)">
+                                <button onclick="ui.openModal('addSchoolModal')" class="bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl"><i class="fa-solid fa-plus"></i> Ajouter</button>
+                            </div>
+                        </div>
+
+                        <div id="importReportBox" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2"></div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <input type="text" id="filterSchoolQuery" oninput="app.renderSchoolsTable()" placeholder="Rechercher une école..." class="border border-slate-300 rounded-lg p-2 text-xs">
+                            <select id="filterSchoolDept" onchange="app.renderSchoolsTable()" class="border border-slate-300 rounded-lg p-2 text-xs">
+                                <option value="">Tous les départements</option>
+                            </select>
+                        </div>
+
+                        <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs">
+                            <thead><tr class="bg-slate-100 text-slate-600 font-bold uppercase border-b">
+                                <th class="py-3 px-3">Code</th><th class="py-3 px-3">Nom</th><th class="py-3 px-3">Commune</th><th class="py-3 px-3">Département</th><th class="py-3 px-3 text-center">Statut</th>
+                            </tr></thead>
+                            <tbody id="schoolsTableBody" class="divide-y"></tbody>
+                        </table></div>
+                    </div>
+                </section>
+
+                <!-- VUE : GESTION UTILISATEURS -->
+                <section id="view-users" class="app-view hidden space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                        <h2 class="text-xl font-bold text-slate-900">Gestion des Comptes & Rôles</h2>
+                        <p class="text-xs text-slate-500">Affectez un rôle et une école à chaque compte créé (les nouveaux inscrits arrivent en attente).</p>
+                        <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs">
+                            <thead><tr class="bg-slate-100 text-slate-600 font-bold uppercase border-b">
+                                <th class="py-3 px-3">Nom</th><th class="py-3 px-3">Email</th><th class="py-3 px-3 text-center">Rôle</th>
+                                <th class="py-3 px-3">École affectée</th><th class="py-3 px-3 text-center">Statut</th>
+                            </tr></thead>
+                            <tbody id="usersTableBody" class="divide-y"></tbody>
+                        </table></div>
+                    </div>
+                </section>
+
+                <!-- VUE : GESTION CAMPAGNES -->
+                <section id="view-campaigns" class="app-view hidden space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-xl font-bold text-slate-900">Campagnes de Collecte</h2>
+                            <button onclick="ui.openModal('addCampaignModal')" class="bg-primary-600 text-white font-bold text-xs px-3.5 py-2 rounded-xl"><i class="fa-solid fa-calendar-plus"></i> Nouvelle</button>
+                        </div>
+                        <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs">
+                            <thead><tr class="bg-slate-100 text-slate-600 font-bold uppercase border-b">
+
+                                <th class="py-3 px-3">Nom</th><th class="py-3 px-3 text-center">Date</th><th class="py-3 px-3 text-center">Statut</th><th class="py-3 px-3 text-center">Action</th>
+                            </tr></thead>
+                            <tbody id="campaignsTableBody" class="divide-y"></tbody>
+                        </table></div>
+                    </div>
+                </section>
+
+                <!-- VUE : EXPORT -->
+                <section id="view-export" class="app-view hidden">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                        <h2 class="text-2xl font-black text-slate-900">Génération du Fichier Excel Officiel</h2>
+                        <p class="text-xs text-slate-500">Génère un classeur .xlsx avec la synthèse globale et une feuille par département, à partir des données actuellement dans Supabase.</p>
+                        <button onclick="app.runExcelExport()" class="py-3.5 px-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm">
+                            <i class="fa-solid fa-file-export mr-1"></i> GÉNÉRER ET TÉLÉCHARGER L'EXCEL
+                        </button>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- MODAL : AJOUTER ÉCOLE -->
+    <div id="addSchoolModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4">
+            <h3 class="font-bold text-lg">Ajouter une École</h3>
+            <form onsubmit="app.handleAddSchool(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold mb-1">Département</label>
+                    <select id="newSchoolDept" onchange="app.populateCommuneSelect('newSchoolDept','newSchoolCommune')" class="w-full border rounded-lg p-2" required></select>
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">Commune</label>
+                    <select id="newSchoolCommune" class="w-full border rounded-lg p-2" required></select>
+                </div>
+                <div><label class="block font-bold mb-1">Code École</label><input type="text" id="newSchoolCode" required class="w-full border rounded-lg p-2"></div>
+                <div><label class="block font-bold mb-1">Nom</label><input type="text" id="newSchoolName" required class="w-full border rounded-lg p-2"></div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="ui.closeModal('addSchoolModal')" class="px-3 py-2 bg-slate-200 rounded-lg font-bold">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg font-bold">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL : AFFECTER UNE ÉCOLE À UN UTILISATEUR (Département > Commune > École) -->
+    <div id="assignSchoolModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4">
+            <h3 class="font-bold text-lg">Affecter une École</h3>
+            <p class="text-xs text-slate-500" id="assignSchoolUserLabel">-</p>
+            <form onsubmit="app.handleAssignSchool(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold mb-1">1. Département</label>
+                    <select id="assignDept" onchange="app.populateCommuneSelect('assignDept','assignCommune'); app.populateSchoolSelectForCommune('assignCommune','assignSchool')" class="w-full border rounded-lg p-2" required></select>
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">2. Commune</label>
+                    <select id="assignCommune" onchange="app.populateSchoolSelectForCommune('assignCommune','assignSchool')" class="w-full border rounded-lg p-2" required></select>
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">3. École</label>
+                    <select id="assignSchool" class="w-full border rounded-lg p-2" required></select>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="ui.closeModal('assignSchoolModal')" class="px-3 py-2 bg-slate-200 rounded-lg font-bold">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg font-bold">Affecter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL : NOUVELLE CAMPAGNE -->
+    <div id="addCampaignModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4">
+            <h3 class="font-bold text-lg">Ouvrir une Nouvelle Campagne</h3>
+            <form onsubmit="app.handleAddCampaign(event)" class="space-y-3 text-xs">
+                <div><label class="block font-bold mb-1">Titre</label><input type="text" id="newCampaignTitle" required class="w-full border rounded-lg p-2"></div>
+                <div><label class="block font-bold mb-1">Date</label><input type="date" id="newCampaignDate" required class="w-full border rounded-lg p-2"></div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="ui.closeModal('addCampaignModal')" class="px-3 py-2 bg-slate-200 rounded-lg font-bold">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg font-bold">Ouvrir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    // ================================================================
+    // CANTINE DATA — Moteur applicatif connecté à Supabase
+    // ================================================================
+
+    let sb = null;
+    const state = {
+        session: null,
+        profile: null,
+        departments: [],
+        communes: [],
+        schools: [],
+        campaigns: [],
+        activeCampaignId: null,
+        collectes: [],
+        currentView: 'dashboard',
+        formSchoolOpen: true,
+        formCanteenFunc: true
+    };
+
+    const REASON_LIST = null; // (kept in the <select> options directly)
+
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+    const ui = {
+        setAuthTab(tab) {
+            const isLogin = tab === 'login';
+            document.getElementById('loginForm').classList.toggle('hidden', !isLogin);
+            document.getElementById('signupForm').classList.toggle('hidden', isLogin);
+            document.getElementById('tabLogin').className = `flex-1 py-2 rounded-lg ${isLogin ? 'bg-white shadow text-primary-700' : 'text-slate-500'}`;
+            document.getElementById('tabSignup').className = `flex-1 py-2 rounded-lg ${!isLogin ? 'bg-white shadow text-primary-700' : 'text-slate-500'}`;
+            hide('authErrorBox'); hide('authInfoBox');
+        },
+        openModal(id) {
+            if (id === 'addSchoolModal') {
+                const deptSel = document.getElementById('newSchoolDept');
+                deptSel.innerHTML = state.departments.map(d => `<option value="${d.id}">${d.nom}</option>`).join('');
+                app.populateCommuneSelect('newSchoolDept', 'newSchoolCommune');
+            }
+            const el = document.getElementById(id);
+            el.classList.remove('hidden'); el.classList.add('flex');
+        },
+        closeModal(id) {
+            const el = document.getElementById(id);
+            el.classList.add('hidden'); el.classList.remove('flex');
+        },
+        banner(msg, type = 'success') {
+            const area = document.getElementById('globalNotificationArea');
+            const bg = type === 'success' ? 'bg-emerald-600' : 'bg-rose-600';
+            area.innerHTML = `<div class="${bg} text-white p-3.5 px-4 rounded-xl shadow-lg flex items-center justify-between text-xs font-bold">
+                <span><i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'} mr-2"></i>${msg}</span>
+                <button onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button></div>`;
+            setTimeout(() => { area.innerHTML = ''; }, 6000);
+        }
+    };
+
+    // ---------------------------------------------------------------
+    // AUTHENTIFICATION
+    // ---------------------------------------------------------------
+    const auth = {
+        async handleLogin(e) {
+            e.preventDefault();
+            hide('authErrorBox');
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const { error } = await sb.auth.signInWithPassword({ email, password });
+            if (error) {
+                document.getElementById('authErrorBox').innerText = error.message === 'Invalid login credentials'
+                    ? "Email ou mot de passe incorrect."
+                    : error.message;
+                show('authErrorBox');
+            }
+        },
+        async handleSignup(e) {
+            e.preventDefault();
+            hide('authErrorBox'); hide('authInfoBox');
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const prenom = document.getElementById('signupFirstname').value.trim();
+            const nom = document.getElementById('signupName').value.trim();
+            const { error } = await sb.auth.signUp({
+                email, password,
+                options: { data: { nom, prenom } }
+            });
+            if (error) {
+                document.getElementById('authErrorBox').innerText = error.message;
+                show('authErrorBox');
+                return;
+            }
+            document.getElementById('authInfoBox').innerText = "Compte créé ! Si la confirmation par email est activée sur le projet, vérifiez votre boîte mail avant de vous connecter.";
+            show('authInfoBox');
+            ui.setAuthTab('login');
+        },
+        async logout() {
+            await sb.auth.signOut();
+        }
+    };
+
+    // ---------------------------------------------------------------
+    // APPLICATION
+    // ---------------------------------------------------------------
+    const app = {
+        async boot() {
+            state.profile = null;
+            const { data: profileRow, error } = await sb.from('profils').select('*').eq('id', state.session.user.id).maybeSingle();
+            if (error || !profileRow) {
+                ui.banner("Impossible de charger votre profil. Réessayez dans un instant.", "error");
+                hide('loadingScreen');
+                show('authScreen');
+                return;
+            }
+            state.profile = profileRow;
+
+            const needsSchool = profileRow.role !== 'ADMIN' && !profileRow.ecole_id;
+            if (!profileRow.actif || needsSchool) {
+                hide('loadingScreen'); hide('authScreen');
+                show('pendingScreen');
+                return;
+            }
+
+            await this.loadReferenceData();
+            this.renderSidebar();
+            this.navigateTo(profileRow.role === 'ENSEIGNANT' ? 'form' : 'dashboard');
+            this.subscribeRealtime();
+
+            hide('loadingScreen'); hide('authScreen'); hide('pendingScreen');
+            show('appRoot');
+            document.getElementById('userBadgeName').innerText = `${profileRow.prenom} ${profileRow.nom}`;
+            document.getElementById('userBadgeRole').innerText = profileRow.role;
+        },
+
+        async loadReferenceData() {
+            const [dep, com, sch, camp, settings] = await Promise.all([
+                sb.from('departements').select('*').order('ordre'),
+                sb.from('communes').select('*'),
+                sb.from('ecoles').select('*').eq('actif', true),
+                sb.from('campagnes').select('*').order('date_campagne', { ascending: false }),
+                sb.from('app_settings').select('*').eq('id', 1).maybeSingle()
+            ]);
+            state.departments = dep.data || [];
+            state.communes = com.data || [];
+            state.schools = sch.data || [];
+            state.campaigns = camp.data || [];
+            state.activeCampaignId = settings.data ? settings.data.active_campagne_id : null;
+            await this.loadCollectesActiveCampaign();
+            this.updateCampaignHeader();
+        },
+
+        async loadCollectesActiveCampaign() {
+            if (!state.activeCampaignId) { state.collectes = []; return; }
+            const { data } = await sb.from('collectes').select('*').eq('campagne_id', state.activeCampaignId);
+            state.collectes = data || [];
+        },
+
+        subscribeRealtime() {
+            // Live updates: any insert/update on collectes for the active
+            // campaign refreshes whatever view is on screen right now.
+            sb.channel('collectes-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'collectes' }, async () => {
+                    await this.loadCollectesActiveCampaign();
+                    this.rerender();
+                })
+                .subscribe();
+            sb.channel('schools-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'ecoles' }, async () => {
+                    const { data } = await sb.from('ecoles').select('*').eq('actif', true);
+                    state.schools = data || [];
+                    this.populateFormSchools();
+                    this.rerender();
+                })
+                .subscribe();
+        },
+
+        updateCampaignHeader() {
+            const camp = state.campaigns.find(c => c.id === state.activeCampaignId);
+            const label = camp ? camp.nom : "Aucune campagne active";
+            document.getElementById('headerCampaignName').innerText = label;
+            const t = document.getElementById('dashCampaignTitle'); if (t) t.innerText = label;
+            const s = document.getElementById('formCampaignSubtext'); if (s) s.innerText = "Campagne : " + label;
+        },
+
+        renderSidebar() {
+            const role = state.profile.role;
+            const items = [
+                { id: 'form', label: 'Saisie Cantine', icon: 'fa-mobile-screen', roles: ['ENSEIGNANT', 'DIRECTEUR', 'ADMIN'] },
+                { id: 'dashboard', label: 'Dashboard National', icon: 'fa-chart-pie', roles: ['ADMIN', 'DIRECTEUR'] },
+                { id: 'collectes', label: 'Registre des Collectes', icon: 'fa-list-check', roles: ['ADMIN', 'DIRECTEUR'] },
+                { id: 'non-respondents', label: 'Écoles Non-Répondantes', icon: 'fa-triangle-exclamation', roles: ['ADMIN', 'DIRECTEUR'] },
+                { id: 'schools', label: 'Gestion des Écoles', icon: 'fa-school', roles: ['ADMIN'] },
+                { id: 'users', label: 'Gestion Utilisateurs', icon: 'fa-users-gear', roles: ['ADMIN'] },
+                { id: 'campaigns', label: 'Gestion Campagnes', icon: 'fa-calendar-days', roles: ['ADMIN'] },
+                { id: 'export', label: 'Générer Excel', icon: 'fa-file-excel text-emerald-600', roles: ['ADMIN', 'DIRECTEUR'] }
+            ];
+            const nav = document.getElementById('sidebarNav');
+            nav.innerHTML = '';
+            items.filter(i => i.roles.includes(role)).forEach(item => {
+                const btn = document.createElement('button');
+                btn.onclick = () => this.navigateTo(item.id);
+                btn.className = `w-full text-left p-2.5 rounded-xl flex items-center gap-2.5 text-xs font-semibold ${state.currentView === item.id ? 'bg-primary-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+                btn.innerHTML = `<i class="fa-solid ${item.icon} w-4 text-center"></i> ${item.label}`;
+                nav.appendChild(btn);
+            });
+        },
+
+        navigateTo(view) {
+            state.currentView = view;
+            document.querySelectorAll('.app-view').forEach(v => v.classList.add('hidden'));
+            const target = document.getElementById('view-' + view);
+            if (target) target.classList.remove('hidden');
+            this.renderSidebar();
+            this.rerender();
+            window.scrollTo({ top: 0 });
+        },
+
+        rerender() {
+            const v = state.currentView;
+            if (v === 'form') this.populateFormSchools();
+            if (v === 'dashboard') this.renderDashboard();
+            if (v === 'collectes') this.renderCollectesTable();
+            if (v === 'non-respondents') this.renderNonRespondents();
+            if (v === 'schools') this.renderSchoolsTable();
+            if (v === 'users') this.renderUsersTable();
+            if (v === 'campaigns') this.renderCampaignsTable();
+        },
+
+        schoolsForRole() {
+            if (state.profile.role === 'ADMIN' || state.profile.role === 'DIRECTEUR') return state.schools;
+            return state.schools.filter(s => s.id === state.profile.ecole_id);
+        },
+
+        populateFormSchools() {
+            const sel = document.getElementById('formSchoolSelect');
+            if (!sel) return;
+            const allowed = this.schoolsForRole();
+            sel.innerHTML = allowed.map(s => `<option value="${s.id}">${s.nom}</option>`).join('');
+            if (allowed.length > 0) this.onSchoolChange(allowed[0].id);
+        },
+
+        onSchoolChange(schoolId) {
+            const existing = state.collectes.find(c => c.ecole_id === schoolId);
+            if (existing) {
+                document.getElementById('formBoysPresent').value = existing.eleves_garcons || 0;
+                document.getElementById('formGirlsPresent').value = existing.eleves_filles || 0;
+                document.getElementById('formBoysFed').value = existing.nourris_garcons || 0;
+                document.getElementById('formGirlsFed').value = existing.nourris_filles || 0;
+                document.getElementById('formObservation').value = existing.observation || '';
+                document.getElementById('formReasonSelect').value = existing.raison_non_fonctionnement || '';
+                this.setSchoolOpen(existing.ecole_ouverte);
+                this.setCanteenFunc(existing.cantine_fonctionnelle);
+            } else {
+                document.getElementById('collecteForm').reset();
+                this.setSchoolOpen(true);
+                this.setCanteenFunc(true);
+            }
+            this.recalcTotals();
+        },
+
+        setSchoolOpen(isOpen) {
+            state.formSchoolOpen = isOpen;
+            const y = document.getElementById('btnSchoolOpenYes'), n = document.getElementById('btnSchoolOpenNo');
+            y.className = `py-3 rounded-xl font-bold text-sm border-2 ${isOpen ? 'bg-emerald-600 text-white border-emerald-600' : 'border-slate-200 text-slate-700'}`;
+            n.className = `py-3 rounded-xl font-bold text-sm border-2 ${!isOpen ? 'bg-rose-600 text-white border-rose-600' : 'border-slate-200 text-slate-700'}`;
+            document.getElementById('canteenSection').classList.toggle('hidden', !isOpen);
+            document.getElementById('studentNumbersSection').classList.toggle('hidden', !isOpen);
+            if (!isOpen) this.setCanteenFunc(false);
+        },
+
+        setCanteenFunc(isFunc) {
+            state.formCanteenFunc = isFunc;
+            const y = document.getElementById('btnCanteenYes'), n = document.getElementById('btnCanteenNo');
+            y.className = `py-3 rounded-xl font-bold text-sm border-2 ${isFunc ? 'bg-emerald-600 text-white border-emerald-600' : 'border-slate-200 text-slate-700'}`;
+            n.className = `py-3 rounded-xl font-bold text-sm border-2 ${!isFunc ? 'bg-amber-600 text-white border-amber-600' : 'border-slate-200 text-slate-700'}`;
+            document.getElementById('canteenReasonSection').classList.toggle('hidden', isFunc || !state.formSchoolOpen);
+        },
+
+        recalcTotals() {
+            const bp = parseInt(document.getElementById('formBoysPresent').value) || 0;
+            const gp = parseInt(document.getElementById('formGirlsPresent').value) || 0;
+            const bf = parseInt(document.getElementById('formBoysFed').value) || 0;
+            const gf = parseInt(document.getElementById('formGirlsFed').value) || 0;
+            document.getElementById('formTotalPresent').innerText = bp + gp;
+            document.getElementById('formTotalFed').innerText = bf + gf;
+            const errBox = document.getElementById('formValidationError');
+            if (bf > bp || gf > gp) { errBox.innerText = "Les enfants nourris ne peuvent pas dépasser les élèves présents."; errBox.classList.remove('hidden'); }
+            else errBox.classList.add('hidden');
+        },
+
+        async handleFormSubmit(e) {
+            e.preventDefault();
+            const schoolId = document.getElementById('formSchoolSelect').value;
+            if (!schoolId) { ui.banner("Sélectionnez un établissement.", "error"); return; }
+            if (!state.activeCampaignId) { ui.banner("Aucune campagne active — contactez l'administrateur.", "error"); return; }
+
+            const isOpen = state.formSchoolOpen, isFunc = state.formCanteenFunc;
+            const reason = document.getElementById('formReasonSelect').value;
+            const bp = parseInt(document.getElementById('formBoysPresent').value) || 0;
+            const gp = parseInt(document.getElementById('formGirlsPresent').value) || 0;
+            const bf = parseInt(document.getElementById('formBoysFed').value) || 0;
+            const gf = parseInt(document.getElementById('formGirlsFed').value) || 0;
+
+            if (isOpen && !isFunc && !reason) { ui.banner("Sélectionnez le motif de non-fonctionnement.", "error"); return; }
+            if (isOpen && (bf > bp || gf > gp)) { ui.banner("Les enfants nourris dépassent les élèves présents.", "error"); return; }
+
+            const payload = {
+                campagne_id: state.activeCampaignId,
+                ecole_id: schoolId,
+                date_collecte: new Date().toISOString().slice(0, 10),
+                ecole_ouverte: isOpen,
+                cantine_fonctionnelle: isOpen ? isFunc : false,
+                raison_non_fonctionnement: (isOpen && !isFunc) ? reason : null,
+                eleves_garcons: isOpen ? bp : 0,
+                eleves_filles: isOpen ? gp : 0,
+                nourris_garcons: (isOpen && isFunc) ? bf : 0,
+                nourris_filles: (isOpen && isFunc) ? gf : 0,
+                observation: document.getElementById('formObservation').value,
+                created_by: state.session.user.id,
+                updated_at: new Date().toISOString()
+            };
+
+            const btn = document.getElementById('btnSubmitForm');
+            btn.disabled = true; btn.classList.add('opacity-60');
+            const { error } = await sb.from('collectes').upsert(payload, { onConflict: 'campagne_id,ecole_id' });
+            btn.disabled = false; btn.classList.remove('opacity-60');
+
+            if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+            ui.banner("Point cantine transmis avec succès !", "success");
+            await this.loadCollectesActiveCampaign();
+            if (state.profile.role !== 'ENSEIGNANT') this.navigateTo('collectes');
+        },
+
+        renderDashboard() {
+            const totalSchools = state.schools.length;
+            const responded = state.collectes.length;
+            const open = state.collectes.filter(c => c.ecole_ouverte).length;
+            const func = state.collectes.filter(c => c.ecole_ouverte && c.cantine_fonctionnelle).length;
+            let pres = 0, fed = 0;
+            state.collectes.forEach(c => { pres += (c.eleves_garcons || 0) + (c.eleves_filles || 0); fed += (c.nourris_garcons || 0) + (c.nourris_filles || 0); });
+
+            const kpis = [
+                ['Écoles Attendues', totalSchools, 'fa-school text-slate-400'],
+                ['Taux de Collecte', totalSchools ? Math.round(responded / totalSchools * 100) + '%' : '0%', 'fa-chart-line text-primary-500'],
+                ['Cantines Fonctionnelles', func, 'fa-bowl-rice text-emerald-500'],
+                ['Enfants Nourris', fed.toLocaleString(), 'fa-child-reaching text-amber-500']
+            ];
+            document.getElementById('dashboardKpis').innerHTML = kpis.map(([label, val, icon]) => `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-500 text-xs font-medium mb-2"><span>${label}</span><i class="fa-solid ${icon}"></i></div>
+                    <div class="text-2xl font-black text-slate-900">${val}</div>
+                </div>`).join('');
+
+            const tbody = document.getElementById('deptStatsBody');
+            tbody.innerHTML = state.departments.map(dept => {
+                const communeIds = state.communes.filter(c => c.departement_id === dept.id).map(c => c.id);
+                const deptSchools = state.schools.filter(s => communeIds.includes(s.commune_id));
+                const deptSchoolIds = deptSchools.map(s => s.id);
+                const deptCol = state.collectes.filter(c => deptSchoolIds.includes(c.ecole_id));
+                const dFunc = deptCol.filter(c => c.ecole_ouverte && c.cantine_fonctionnelle).length;
+                const dFed = deptCol.reduce((sum, c) => sum + (c.nourris_garcons || 0) + (c.nourris_filles || 0), 0);
+                return `<tr><td class="py-2 px-3 font-bold">${dept.nom}</td><td class="py-2 px-3 text-center">${deptSchools.length}</td>
+                    <td class="py-2 px-3 text-center">${deptCol.length}</td><td class="py-2 px-3 text-center font-bold text-emerald-600">${dFunc}</td>
+                    <td class="py-2 px-3 text-right font-bold text-emerald-700">${dFed}</td></tr>`;
+            }).join('');
+        },
+
+        renderCollectesTable() {
+            const tbody = document.getElementById('collectesTableBody');
+            if (state.collectes.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-slate-400">Aucune collecte pour cette campagne.</td></tr>'; return; }
+            tbody.innerHTML = state.collectes.map(c => {
+                const school = state.schools.find(s => s.id === c.ecole_id);
+                const pres = (c.eleves_garcons || 0) + (c.eleves_filles || 0);
+                const fed = (c.nourris_garcons || 0) + (c.nourris_filles || 0);
+                return `<tr>
+                    <td class="py-2.5 px-3 font-semibold">${school ? school.nom : '-'}</td>
+                    <td class="py-2.5 px-3 text-center">${c.ecole_ouverte ? '<span class="text-emerald-600 font-bold">Oui</span>' : '<span class="text-rose-600 font-bold">Non</span>'}</td>
+                    <td class="py-2.5 px-3 text-center">${!c.ecole_ouverte ? 'Fermée' : (c.cantine_fonctionnelle ? '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">Oui</span>' : '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">Non</span>')}</td>
+                    <td class="py-2.5 px-3 text-right font-bold">${pres}</td>
+                    <td class="py-2.5 px-3 text-right font-bold text-emerald-700">${fed}</td>
+                    <td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded-full font-bold text-[10px] ${c.statut === 'VALIDEE' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}">${c.statut}</span></td>
+                    <td class="py-2.5 px-3 text-center"><button onclick="app.toggleValidate('${c.id}','${c.statut}')" class="p-1 px-2 bg-emerald-50 text-emerald-700 rounded font-bold text-[10px]"><i class="fa-solid fa-check"></i></button></td>
+                </tr>`;
+            }).join('');
+        },
+
+        async toggleValidate(id, currentStatus) {
+            const newStatus = currentStatus === 'VALIDEE' ? 'SOUMISE' : 'VALIDEE';
+            const { error } = await sb.from('collectes').update({ statut: newStatus }).eq('id', id);
+            if (error) ui.banner("Erreur : " + error.message, "error");
+        },
+
+        renderNonRespondents() {
+            const respondedIds = state.collectes.map(c => c.ecole_id);
+            const missing = state.schools.filter(s => !respondedIds.includes(s.id));
+            const tbody = document.getElementById('nonRespondentsBody');
+            if (missing.length === 0) { tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-emerald-600 font-bold">Toutes les écoles ont transmis leur rapport !</td></tr>'; return; }
+            tbody.innerHTML = missing.map(s => {
+                const commune = state.communes.find(c => c.id === s.commune_id);
+                return `<tr><td class="py-2.5 px-3 font-mono">${s.code_ecole}</td><td class="py-2.5 px-3 font-bold">${s.nom}</td><td class="py-2.5 px-3">${commune ? commune.nom : '-'}</td></tr>`;
+            }).join('');
+        },
+
+        // Génériques : remplit un <select> de communes en fonction du
+        // département choisi dans deptSelectId. Réutilisé par le formulaire
+        // "Ajouter une école" et le modal "Affecter une école".
+        populateCommuneSelect(deptSelectId, communeSelectId) {
+            const deptId = document.getElementById(deptSelectId).value;
+            const communeSel = document.getElementById(communeSelectId);
+            const options = state.communes.filter(c => c.departement_id === deptId);
+            communeSel.innerHTML = options.length
+                ? options.map(c => `<option value="${c.id}">${c.nom}</option>`).join('')
+                : '<option value="">Aucune commune enregistrée</option>';
+        },
+
+        // Remplit un <select> d'écoles en fonction de la commune choisie.
+        // Utilisé uniquement par le modal d'affectation (Département > Commune > École).
+        populateSchoolSelectForCommune(communeSelectId, schoolSelectId) {
+            const communeId = document.getElementById(communeSelectId).value;
+            const schoolSel = document.getElementById(schoolSelectId);
+            const options = state.schools.filter(s => s.commune_id === communeId);
+            schoolSel.innerHTML = options.length
+                ? options.map(s => `<option value="${s.id}">${s.nom} (${s.code_ecole})</option>`).join('')
+                : '<option value="">Aucune école dans cette commune</option>';
+        },
+
+        renderSchoolsTable() {
+            const q = (document.getElementById('filterSchoolQuery').value || '').toLowerCase();
+            const deptFilter = document.getElementById('filterSchoolDept').value;
+
+            // Keep the department filter dropdown in sync with loaded data.
+            const deptSel = document.getElementById('filterSchoolDept');
+            if (deptSel.options.length <= 1) {
+                deptSel.innerHTML = '<option value="">Tous les départements</option>' +
+                    state.departments.map(d => `<option value="${d.id}">${d.nom}</option>`).join('');
+            }
+
+            const list = state.schools.filter(s => {
+                const commune = state.communes.find(c => c.id === s.commune_id);
+                const deptId = commune ? commune.departement_id : null;
+                if (deptFilter && deptId !== deptFilter) return false;
+                if (q && !s.nom.toLowerCase().includes(q) && !s.code_ecole.toLowerCase().includes(q)) return false;
+                return true;
+            });
+
+            document.getElementById('schoolsCountLabel').innerText = `${list.length} école(s) sur ${state.schools.length} au total`;
+
+            const tbody = document.getElementById('schoolsTableBody');
+            if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-400">Aucune école ne correspond aux filtres.</td></tr>'; return; }
+            tbody.innerHTML = list.map(s => {
+                const commune = state.communes.find(c => c.id === s.commune_id);
+                const dept = commune ? state.departments.find(d => d.id === commune.departement_id) : null;
+                return `<tr><td class="py-2.5 px-3 font-mono">${s.code_ecole}</td><td class="py-2.5 px-3 font-bold">${s.nom}</td>
+                    <td class="py-2.5 px-3">${commune ? commune.nom : '-'}</td>
+                    <td class="py-2.5 px-3">${dept ? dept.nom : '-'}</td>
+                    <td class="py-2.5 px-3 text-center"><span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">Actif</span></td></tr>`;
+            }).join('');
+        },
+
+        async handleAddSchool(e) {
+            e.preventDefault();
+            const communeId = document.getElementById('newSchoolCommune').value;
+            const code = document.getElementById('newSchoolCode').value.trim();
+            const nom = document.getElementById('newSchoolName').value.trim();
+            if (!communeId) { ui.banner("Sélectionnez d'abord un département avec au moins une commune enregistrée.", "error"); return; }
+            const { error } = await sb.from('ecoles').insert({ commune_id: communeId, code_ecole: code, nom, actif: true });
+            if (error) {
+                ui.banner(error.code === '23505' ? "Ce code école existe déjà." : "Erreur : " + error.message, "error");
+                return;
+            }
+            ui.closeModal('addSchoolModal');
+            ui.banner("École ajoutée au référentiel !");
+        },
+
+        // ------------------------------------------------------------
+        // IMPORT EXCEL DU RÉFÉRENTIEL DES ÉCOLES
+        // Colonnes attendues (insensibles à la casse, ordre libre) :
+        //   Département | Commune | Code (ou Code École) | École (ou Nom École)
+        // Les départements doivent correspondre aux 12 noms officiels déjà
+        // en base. Les communes absentes sont créées automatiquement.
+        // ------------------------------------------------------------
+        async handleExcelImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reportBox = document.getElementById('importReportBox');
+            reportBox.classList.remove('hidden');
+            reportBox.innerHTML = '<p class="text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Lecture du fichier…</p>';
+
+            try {
+                const buffer = await file.arrayBuffer();
+                const wb = XLSX.read(buffer, { type: 'array' });
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+                if (rows.length === 0) {
+                    reportBox.innerHTML = '<p class="text-rose-600 font-bold">Le fichier est vide ou illisible.</p>';
+                    return;
+                }
+
+                // Colonne matching souple : on cherche les en-têtes par mots-clés.
+                const headers = Object.keys(rows[0]);
+                const findHeader = (keywords) => headers.find(h => keywords.some(k => h.toLowerCase().includes(k)));
+                const hDept = findHeader(['département', 'departement', 'dept']);
+                const hCommune = findHeader(['commune']);
+                const hCode = findHeader(['code']);
+                const hNom = findHeader(['école', 'ecole', 'nom']);
+
+                if (!hDept || !hCommune || !hNom) {
+                    reportBox.innerHTML = `<p class="text-rose-600 font-bold">Colonnes non reconnues. Le fichier doit contenir au minimum : Département, Commune, Nom de l'école (Code recommandé).</p>
+                        <p class="text-slate-500 mt-1">Colonnes détectées : ${headers.join(', ')}</p>`;
+                    return;
+                }
+
+                let created = 0, updated = 0, skipped = 0, communesCreated = 0;
+                const errors = [];
+
+                for (const row of rows) {
+                    const deptName = String(row[hDept] || '').trim();
+                    const communeName = String(row[hCommune] || '').trim();
+                    const schoolName = String(row[hNom] || '').trim();
+                    const schoolCode = hCode ? String(row[hCode] || '').trim() : '';
+
+                    if (!deptName || !communeName || !schoolName) { skipped++; continue; }
+
+                    const dept = state.departments.find(d => d.nom.toLowerCase() === deptName.toLowerCase());
+                    if (!dept) { errors.push(`Département "${deptName}" introuvable (école "${schoolName}" ignorée).`); skipped++; continue; }
+
+                    let commune = state.communes.find(c => c.departement_id === dept.id && c.nom.toLowerCase() === communeName.toLowerCase());
+                    if (!commune) {
+                        const { data: newCommune, error: communeErr } = await sb
+                            .from('communes').insert({ departement_id: dept.id, nom: communeName }).select().single();
+                        if (communeErr) { errors.push(`Commune "${communeName}" : ${communeErr.message}`); skipped++; continue; }
+                        commune = newCommune;
+                        state.communes.push(commune);
+                        communesCreated++;
+                    }
+
+                    const code = schoolCode || (schoolName.substring(0, 15).toUpperCase().replace(/[^A-Z0-9]/g, '') + '-' + Math.floor(Math.random() * 900 + 100));
+                    const { error: upsertErr } = await sb
+                        .from('ecoles')
+                        .upsert({ code_ecole: code, nom: schoolName, commune_id: commune.id, actif: true }, { onConflict: 'code_ecole' })
+                        .select();
+                    if (upsertErr) { errors.push(`École "${schoolName}" : ${upsertErr.message}`); skipped++; continue; }
+                    created++;
+                }
+
+                const { data: refreshedSchools } = await sb.from('ecoles').select('*').eq('actif', true);
+                state.schools = refreshedSchools || [];
+                this.renderSchoolsTable();
+                this.populateFormSchools();
+
+                reportBox.innerHTML = `
+                    <p class="font-bold text-emerald-700"><i class="fa-solid fa-circle-check mr-1"></i> Import terminé : ${created} école(s) traitée(s), ${communesCreated} commune(s) créée(s), ${skipped} ligne(s) ignorée(s).</p>
+                    ${errors.length ? `<div class="mt-2 max-h-32 overflow-y-auto space-y-1">${errors.slice(0, 20).map(e => `<p class="text-rose-600">${e}</p>`).join('')}</div>` : ''}
+                `;
+                ui.banner(`Import terminé : ${created} école(s) traitée(s).`);
+            } catch (err) {
+                reportBox.innerHTML = `<p class="text-rose-600 font-bold">Erreur de lecture du fichier : ${err.message}</p>`;
+            } finally {
+                event.target.value = '';
+            }
+        },
+
+        async renderUsersTable() {
+            const { data: users, error } = await sb.from('profils').select('*').order('created_at', { ascending: false });
+            const tbody = document.getElementById('usersTableBody');
+            if (error) { tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500">${error.message}</td></tr>`; return; }
+            state._usersCache = users;
+            tbody.innerHTML = users.map(u => {
+                const school = state.schools.find(s => s.id === u.ecole_id);
+                const commune = school ? state.communes.find(c => c.id === school.commune_id) : null;
+                const dept = commune ? state.departments.find(d => d.id === commune.departement_id) : null;
+                const schoolLabel = school ? `${school.nom}${dept ? ' — ' + dept.nom : ''}` : 'Non affectée';
+                return `<tr>
+                    <td class="py-2.5 px-3 font-bold">${u.prenom} ${u.nom}</td>
+                    <td class="py-2.5 px-3">${u.email}</td>
+                    <td class="py-2.5 px-3 text-center">
+                        <select onchange="app.updateUserRole('${u.id}', this.value)" class="border rounded p-1 text-[10px] font-bold">
+                            <option value="ENSEIGNANT" ${u.role === 'ENSEIGNANT' ? 'selected' : ''}>ENSEIGNANT</option>
+                            <option value="DIRECTEUR" ${u.role === 'DIRECTEUR' ? 'selected' : ''}>DIRECTEUR</option>
+                            <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>ADMIN</option>
+                        </select>
+                    </td>
+                    <td class="py-2.5 px-3">
+                        <button onclick="app.openAssignSchoolModal('${u.id}')" class="text-left w-full hover:underline ${school ? 'text-slate-800 font-semibold' : 'text-amber-600 font-bold'}">
+                            <i class="fa-solid fa-school mr-1"></i> ${schoolLabel}
+                        </button>
+                    </td>
+                    <td class="py-2.5 px-3 text-center">
+                        <button onclick="app.updateUserActive('${u.id}', ${!u.actif})" class="text-xs ${u.actif ? 'text-emerald-600' : 'text-slate-400'}"><i class="fa-solid ${u.actif ? 'fa-toggle-on' : 'fa-toggle-off'} text-base"></i></button>
+                    </td>
+                </tr>`;
+            }).join('');
+        },
+
+        async updateUserRole(id, role) {
+            const { error } = await sb.from('profils').update({ role }).eq('id', id);
+            if (error) ui.banner("Erreur : " + error.message, "error"); else ui.banner("Rôle mis à jour.");
+        },
+
+        // Ouvre le modal Département > Commune > École pour affecter un
+        // établissement à un compte (enseignant, directeur...).
+        openAssignSchoolModal(userId) {
+            const user = (state._usersCache || []).find(u => u.id === userId);
+            if (!user) return;
+            this._assigningUserId = userId;
+            document.getElementById('assignSchoolUserLabel').innerText = `Pour : ${user.prenom} ${user.nom} (${user.email})`;
+
+            const deptSel = document.getElementById('assignDept');
+            deptSel.innerHTML = state.departments.map(d => `<option value="${d.id}">${d.nom}</option>`).join('');
+
+            // Pré-sélectionne le département/commune actuels si une école est déjà affectée.
+            const currentSchool = state.schools.find(s => s.id === user.ecole_id);
+            const currentCommune = currentSchool ? state.communes.find(c => c.id === currentSchool.commune_id) : null;
+            if (currentCommune) deptSel.value = currentCommune.departement_id;
+
+            this.populateCommuneSelect('assignDept', 'assignCommune');
+            if (currentCommune) document.getElementById('assignCommune').value = currentCommune.id;
+            this.populateSchoolSelectForCommune('assignCommune', 'assignSchool');
+            if (currentSchool) document.getElementById('assignSchool').value = currentSchool.id;
+
+            ui.openModal('assignSchoolModal');
+        },
+
+        async handleAssignSchool(e) {
+            e.preventDefault();
+            const ecoleId = document.getElementById('assignSchool').value;
+            if (!ecoleId) { ui.banner("Sélectionnez une école.", "error"); return; }
+            const { error } = await sb.from('profils').update({ ecole_id: ecoleId }).eq('id', this._assigningUserId);
+            if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+            ui.closeModal('assignSchoolModal');
+            ui.banner("École affectée avec succès !");
+            this.renderUsersTable();
+        },
+
+        async updateUserActive(id, actif) {
+            const { error } = await sb.from('profils').update({ actif }).eq('id', id);
+            if (error) ui.banner("Erreur : " + error.message, "error");
+            else { ui.banner(actif ? "Compte réactivé." : "Compte désactivé."); this.renderUsersTable(); }
+        },
+
+        renderCampaignsTable() {
+            const tbody = document.getElementById('campaignsTableBody');
+            tbody.innerHTML = state.campaigns.map(c => `
+                <tr><td class="py-2.5 px-3 font-bold">${c.nom}</td><td class="py-2.5 px-3 text-center font-mono">${c.date_campagne}</td>
+                    <td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded font-bold text-[10px] ${c.statut === 'OUVERTE' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}">${c.statut}</span></td>
+                    <td class="py-2.5 px-3 text-center">${c.id === state.activeCampaignId ? '<span class="text-emerald-600 font-bold text-xs">Active</span>' : `<button onclick="app.setActiveCampaign('${c.id}')" class="px-2 py-1 bg-slate-800 text-white rounded text-[10px] font-bold">Activer</button>`}</td>
+                </tr>`).join('');
+        },
+
+        async handleAddCampaign(e) {
+            e.preventDefault();
+            const nom = document.getElementById('newCampaignTitle').value.trim();
+            const date_campagne = document.getElementById('newCampaignDate').value;
+            const { data, error } = await sb.from('campagnes').insert({ nom, date_campagne, statut: 'OUVERTE' }).select().single();
+            if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+            ui.closeModal('addCampaignModal');
+            state.campaigns.unshift(data);
+            await this.setActiveCampaign(data.id);
+        },
+
+        async setActiveCampaign(id) {
+            const { error } = await sb.from('app_settings').update({ active_campagne_id: id }).eq('id', 1);
+            if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+            state.activeCampaignId = id;
+            await this.loadCollectesActiveCampaign();
+            this.updateCampaignHeader();
+            this.rerender();
+            ui.banner("Campagne active mise à jour pour tous les utilisateurs !");
+        },
+
+        async runExcelExport() {
+            const { data: allCollectes } = await sb.from('collectes').select('*').eq('campagne_id', state.activeCampaignId);
+            const collectes = allCollectes || [];
+            const wb = XLSX.utils.book_new();
+
+            const globalData = [
+                ["MINISTÈRE DE L'ENSEIGNEMENT MATERNEL ET PRIMAIRE"],
+                ["POINT DE FONCTIONNEMENT DES CANTINES SCOLAIRES"], [""],
+                ["N°", "DÉPARTEMENT", "ÉCOLES", "RÉPONSES", "OUVERTES", "CANTINES FUNC.", "TAUX", "PRÉSENTS G", "PRÉSENTS F", "TOTAL PRÉSENTS", "NOURRIS G", "NOURRIS F", "TOTAL NOURRIS"]
+            ];
+            state.departments.forEach((dept, i) => {
+                const communeIds = state.communes.filter(c => c.departement_id === dept.id).map(c => c.id);
+                const deptSchools = state.schools.filter(s => communeIds.includes(s.commune_id));
+                const deptSchoolIds = deptSchools.map(s => s.id);
+                const deptCol = collectes.filter(c => deptSchoolIds.includes(c.ecole_id));
+                const openCount = deptCol.filter(c => c.ecole_ouverte).length;
+                const funcCount = deptCol.filter(c => c.ecole_ouverte && c.cantine_fonctionnelle).length;
+                let pg = 0, pf = 0, fg = 0, ff = 0;
+                deptCol.forEach(c => { pg += c.eleves_garcons || 0; pf += c.eleves_filles || 0; fg += c.nourris_garcons || 0; ff += c.nourris_filles || 0; });
+                const rate = openCount > 0 ? ((funcCount / openCount) * 100).toFixed(1) + '%' : 'N/A';
+                globalData.push([i + 1, dept.nom, deptSchools.length, deptCol.length, openCount, funcCount, rate, pg, pf, pg + pf, fg, ff, fg + ff]);
+            });
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(globalData), "Synthèse Globale");
+
+            state.departments.forEach(dept => {
+                const communeIds = state.communes.filter(c => c.departement_id === dept.id).map(c => c.id);
+                const deptSchools = state.schools.filter(s => communeIds.includes(s.commune_id));
+                const sheetData = [[`DÉPARTEMENT DE L'${dept.nom}`], [""],
+                    ["COMMUNE", "CODE", "ÉCOLE", "OUVERTE", "CANTINE", "MOTIF", "PRÉSENTS G", "PRÉSENTS F", "NOURRIS G", "NOURRIS F", "OBSERVATIONS"]];
+                deptSchools.forEach(s => {
+                    const commune = state.communes.find(c => c.id === s.commune_id);
+                    const col = collectes.find(c => c.ecole_id === s.id);
+                    if (col) {
+                        sheetData.push([commune ? commune.nom : '', s.code_ecole, s.nom, col.ecole_ouverte ? 1 : 0, col.cantine_fonctionnelle ? 1 : 0,
+                            col.raison_non_fonctionnement || '', col.eleves_garcons || 0, col.eleves_filles || 0, col.nourris_garcons || 0, col.nourris_filles || 0, col.observation || '']);
+                    } else {
+                        sheetData.push([commune ? commune.nom : '', s.code_ecole, s.nom, 'NON RÉPONDU', 'NON RÉPONDU', '', '', '', '', '', '']);
+                    }
+                });
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheetData), dept.nom.substring(0, 31));
+            });
+
+            XLSX.writeFile(wb, `Point_cantines_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            ui.banner("Fichier Excel téléchargé avec succès !");
+        }
+    };
+
+    // ---------------------------------------------------------------
+    // INITIALISATION
+    // ---------------------------------------------------------------
+    window.addEventListener('load', () => {
+        if (SUPABASE_CONFIG.url.includes('COLLEZ_ICI') || SUPABASE_CONFIG.anonKey.includes('COLLEZ_ICI')) {
+            hide('loadingScreen');
+            show('configMissingScreen');
+            return;
+        }
+
+        // Filet de sécurité : si la connexion n'a pas répondu après 8 secondes
+        // (souvent un blocage réseau dans un environnement en bac à sable comme
+        // StackBlitz, ou une URL/clé mal collée), on affiche un diagnostic
+        // clair au lieu de laisser l'écran de chargement tourner indéfiniment.
+        let resolved = false;
+        const connectionTimeout = setTimeout(() => {
+            if (resolved) return;
+            hide('loadingScreen');
+            document.getElementById('connectionErrorDetail').innerText =
+                `URL configurée : ${SUPABASE_CONFIG.url || '(vide)'}`;
+            show('connectionErrorScreen');
+        }, 8000);
+
+        let client;
+        try {
+            client = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+        } catch (err) {
+            resolved = true;
+            clearTimeout(connectionTimeout);
+            hide('loadingScreen');
+            document.getElementById('connectionErrorDetail').innerText = "Erreur : " + err.message;
+            show('connectionErrorScreen');
+            return;
+        }
+        sb = client;
+
+        sb.auth.onAuthStateChange((event, session) => {
+            resolved = true;
+            clearTimeout(connectionTimeout);
+            state.session = session;
+            hide('loadingScreen');
+            hide('connectionErrorScreen');
+            if (session) {
+                hide('authScreen'); hide('pendingScreen');
+                app.boot();
+            } else {
+                hide('appRoot'); hide('pendingScreen');
+                show('authScreen');
+                ui.setAuthTab('login');
+            }
+        });
+    });
+    </script>
+</body>
+</html>
