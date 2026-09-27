@@ -30,8 +30,8 @@
     <!-- ============================================================ -->
     <script>
         const SUPABASE_CONFIG = {
-            url: "https://bvmojrvakqpzsmcqpcgo.supabase.co",       // Ex: https://xxxxx.supabase.co
-            anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bW9qcnZha3FwenNtY3FwY2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzODY1MDEsImV4cCI6MjEwNTk2MjUwMX0.C7IHOHOCuTf5VsfGKCC933T1-STus5xTvt7WCWz0ro0"  // Settings > API > anon public
+            url: "COLLEZ_ICI_VOTRE_PROJECT_URL",       // Ex: https://xxxxx.supabase.co
+            anonKey: "COLLEZ_ICI_VOTRE_ANON_PUBLIC_KEY"  // Settings > API > anon public
         };
     </script>
 
@@ -918,10 +918,12 @@
 
         // ------------------------------------------------------------
         // IMPORT EXCEL DU RÉFÉRENTIEL DES ÉCOLES
-        // Colonnes attendues (insensibles à la casse, ordre libre) :
-        //   Département | Commune | Code (ou Code École) | École (ou Nom École)
-        // Les départements doivent correspondre aux 12 noms officiels déjà
-        // en base. Les communes absentes sont créées automatiquement.
+        // Compatible avec le format ministériel réel : une feuille par
+        // département, en-têtes fusionnées (Département/Commune écrits une
+        // seule fois par groupe), et des lignes de sous-total ("TOTAL X")
+        // à ignorer. La feuille "Synthèse Globale" est ignorée d'office.
+        // Aucune colonne "Code" n'est requise : le nom de l'école (ex:
+        // "EPP_KANDI_CENTRE") sert lui-même de code.
         // ------------------------------------------------------------
         async handleExcelImport(event) {
             const file = event.target.files[0];
@@ -930,61 +932,121 @@
             reportBox.classList.remove('hidden');
             reportBox.innerHTML = '<p class="text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Lecture du fichier…</p>';
 
+            const normalize = (s) => String(s || '')
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .trim().toLowerCase();
+
             try {
                 const buffer = await file.arrayBuffer();
                 const wb = XLSX.read(buffer, { type: 'array' });
-                const sheet = wb.Sheets[wb.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
-                if (rows.length === 0) {
-                    reportBox.innerHTML = '<p class="text-rose-600 font-bold">Le fichier est vide ou illisible.</p>';
+                const extracted = [];
+                const sheetReports = [];
+
+                for (const sheetName of wb.SheetNames) {
+                    if (/synth[eè]se/i.test(sheetName)) continue;
+                    const sheet = wb.Sheets[sheetName];
+                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+                    // Recherche de la ligne d'en-têtes : une cellule "École(s)"
+                    // (peu importe la ligne exacte, elle varie d'une feuille à l'autre).
+                    let headerRowIdx = -1, deptCol = -1, communeCol = -1, ecoleCol = -1;
+                    for (let r = 0; r < Math.min(rows.length, 30); r++) {
+                        const row = rows[r];
+                        let foundHere = false;
+                        for (let c = 0; c < row.length; c++) {
+                            const norm = normalize(row[c]);
+                            if (/^ecoles?$/.test(norm)) { ecoleCol = c; foundHere = true; }
+                            if (/^departements?$/.test(norm)) deptCol = c;
+                            if (/^communes?$/.test(norm)) communeCol = c;
+                        }
+                        if (foundHere) { headerRowIdx = r; break; }
+                    }
+
+                    if (headerRowIdx === -1) {
+                        sheetReports.push(`"${sheetName}" : en-têtes non reconnues, feuille ignorée.`);
+                        continue;
+                    }
+                    if (deptCol === -1) deptCol = 0;
+                    if (communeCol === -1) communeCol = 1;
+
+                    // Certaines feuilles ministérielles (ex: "COLLINES") omettent
+                    // le nom du département sur toute la colonne — dans ce cas,
+                    // le nom de l'onglet lui-même identifie le département.
+                    const fallbackDept = sheetName.trim();
+
+                    let currentDept = '', currentCommune = '', countThisSheet = 0;
+                    for (let r = headerRowIdx + 1; r < rows.length; r++) {
+                        const row = rows[r];
+                        const deptRaw = String(row[deptCol] ?? '').trim();
+                        const communeRaw = String(row[communeCol] ?? '').trim();
+                        const ecoleRaw = String(row[ecoleCol] ?? '').trim();
+
+                        // Les lignes de sous-total ("TOTAL ALIBORI", "TOTAL KANDI")
+                        // réutilisent les colonnes Département/Commune : on ne les
+                        // laisse jamais mettre à jour le département/commune "courant".
+                        if (deptRaw && !/^total\b/i.test(deptRaw)) currentDept = deptRaw;
+                        if (communeRaw && !/^total\b/i.test(communeRaw)) currentCommune = communeRaw;
+
+                        if (!ecoleRaw) continue;
+                        if (/^total\b/i.test(ecoleRaw)) continue;
+                        if (/^[0-9.,\s]+$/.test(ecoleRaw)) continue; // un total numérique isolé, pas un nom d'école
+
+                        const deptToUse = currentDept || fallbackDept;
+                        if (!deptToUse || !currentCommune) continue; // pas de contexte fiable
+
+                        extracted.push({ departement: deptToUse, commune: currentCommune, ecole: ecoleRaw });
+                        countThisSheet++;
+                    }
+                    sheetReports.push(`"${sheetName}" : ${countThisSheet} école(s) détectée(s).`);
+                }
+
+                if (extracted.length === 0) {
+                    reportBox.innerHTML = `<p class="text-rose-600 font-bold">Aucune école détectée dans ce fichier.</p>
+                        <div class="mt-2 space-y-1 text-slate-500">${sheetReports.map(s => `<p>${s}</p>`).join('')}</div>`;
                     return;
                 }
 
-                // Colonne matching souple : on cherche les en-têtes par mots-clés.
-                const headers = Object.keys(rows[0]);
-                const findHeader = (keywords) => headers.find(h => keywords.some(k => h.toLowerCase().includes(k)));
-                const hDept = findHeader(['département', 'departement', 'dept']);
-                const hCommune = findHeader(['commune']);
-                const hCode = findHeader(['code']);
-                const hNom = findHeader(['école', 'ecole', 'nom']);
+                const seen = new Set();
+                const uniqueExtracted = extracted.filter(e => {
+                    const key = normalize(`${e.departement}||${e.commune}||${e.ecole}`);
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
 
-                if (!hDept || !hCommune || !hNom) {
-                    reportBox.innerHTML = `<p class="text-rose-600 font-bold">Colonnes non reconnues. Le fichier doit contenir au minimum : Département, Commune, Nom de l'école (Code recommandé).</p>
-                        <p class="text-slate-500 mt-1">Colonnes détectées : ${headers.join(', ')}</p>`;
-                    return;
-                }
-
-                let created = 0, updated = 0, skipped = 0, communesCreated = 0;
+                let created = 0, skipped = 0, communesCreated = 0;
                 const errors = [];
 
-                for (const row of rows) {
-                    const deptName = String(row[hDept] || '').trim();
-                    const communeName = String(row[hCommune] || '').trim();
-                    const schoolName = String(row[hNom] || '').trim();
-                    const schoolCode = hCode ? String(row[hCode] || '').trim() : '';
+                for (const row of uniqueExtracted) {
+                    // Correspondance souple : accepte "BORGOU 1", "BORGOU_2", etc.
+                    // (fautes de saisie fréquentes dans les fichiers ministériels)
+                    // en plus d'une correspondance exacte.
+                    const rowDeptNorm = normalize(row.departement);
+                    const dept = state.departments.find(d => {
+                        const dn = normalize(d.nom);
+                        return rowDeptNorm === dn || rowDeptNorm.startsWith(dn + ' ') || rowDeptNorm.startsWith(dn + '_') || rowDeptNorm.startsWith(dn + '-');
+                    });
+                    if (!dept) { errors.push(`Département "${row.departement}" introuvable (école "${row.ecole}" ignorée).`); skipped++; continue; }
 
-                    if (!deptName || !communeName || !schoolName) { skipped++; continue; }
-
-                    const dept = state.departments.find(d => d.nom.toLowerCase() === deptName.toLowerCase());
-                    if (!dept) { errors.push(`Département "${deptName}" introuvable (école "${schoolName}" ignorée).`); skipped++; continue; }
-
-                    let commune = state.communes.find(c => c.departement_id === dept.id && c.nom.toLowerCase() === communeName.toLowerCase());
+                    let commune = state.communes.find(c => c.departement_id === dept.id && normalize(c.nom) === normalize(row.commune));
                     if (!commune) {
                         const { data: newCommune, error: communeErr } = await sb
-                            .from('communes').insert({ departement_id: dept.id, nom: communeName }).select().single();
-                        if (communeErr) { errors.push(`Commune "${communeName}" : ${communeErr.message}`); skipped++; continue; }
+                            .from('communes').insert({ departement_id: dept.id, nom: row.commune }).select().single();
+                        if (communeErr) { errors.push(`Commune "${row.commune}" : ${communeErr.message}`); skipped++; continue; }
                         commune = newCommune;
                         state.communes.push(commune);
                         communesCreated++;
                     }
 
-                    const code = schoolCode || (schoolName.substring(0, 15).toUpperCase().replace(/[^A-Z0-9]/g, '') + '-' + Math.floor(Math.random() * 900 + 100));
+                    // Le nom de l'école (ex: "EPP_KANDI_CENTRE") sert aussi de code :
+                    // les fichiers ministériels n'ont pas de colonne "code" séparée.
+                    const code = row.ecole.toUpperCase().replace(/\s+/g, '_').substring(0, 80);
                     const { error: upsertErr } = await sb
                         .from('ecoles')
-                        .upsert({ code_ecole: code, nom: schoolName, commune_id: commune.id, actif: true }, { onConflict: 'code_ecole' })
+                        .upsert({ code_ecole: code, nom: row.ecole, commune_id: commune.id, actif: true }, { onConflict: 'code_ecole' })
                         .select();
-                    if (upsertErr) { errors.push(`École "${schoolName}" : ${upsertErr.message}`); skipped++; continue; }
+                    if (upsertErr) { errors.push(`École "${row.ecole}" : ${upsertErr.message}`); skipped++; continue; }
                     created++;
                 }
 
@@ -995,6 +1057,7 @@
 
                 reportBox.innerHTML = `
                     <p class="font-bold text-emerald-700"><i class="fa-solid fa-circle-check mr-1"></i> Import terminé : ${created} école(s) traitée(s), ${communesCreated} commune(s) créée(s), ${skipped} ligne(s) ignorée(s).</p>
+                    <div class="mt-2 space-y-0.5 text-slate-500">${sheetReports.map(s => `<p>${s}</p>`).join('')}</div>
                     ${errors.length ? `<div class="mt-2 max-h-32 overflow-y-auto space-y-1">${errors.slice(0, 20).map(e => `<p class="text-rose-600">${e}</p>`).join('')}</div>` : ''}
                 `;
                 ui.banner(`Import terminé : ${created} école(s) traitée(s).`);
