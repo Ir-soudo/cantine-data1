@@ -30,8 +30,8 @@
     <!-- ============================================================ -->
     <script>
         const SUPABASE_CONFIG = {
-            url: "https://bvmojrvakqpzsmcqpcgo.supabase.co",       // Ex: https://xxxxx.supabase.co
-            anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bW9qcnZha3FwenNtY3FwY2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzODY1MDEsImV4cCI6MjEwNTk2MjUwMX0.C7IHOHOCuTf5VsfGKCC933T1-STus5xTvt7WCWz0ro0"  // Settings > API > anon public
+            url: "COLLEZ_ICI_VOTRE_PROJECT_URL",       // Ex: https://xxxxx.supabase.co
+            anonKey: "COLLEZ_ICI_VOTRE_ANON_PUBLIC_KEY"  // Settings > API > anon public
         };
     </script>
 
@@ -186,7 +186,15 @@
                         <form id="collecteForm" onsubmit="app.handleFormSubmit(event)" class="space-y-6">
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2">
                                 <label class="block text-xs font-bold text-slate-700 uppercase">Établissement</label>
-                                <select id="formSchoolSelect" onchange="app.onSchoolChange(this.value)" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-semibold"></select>
+                                <div class="relative">
+                                    <input type="text" id="formSchoolSearch" autocomplete="off" placeholder="Tapez le nom de l'école..."
+                                        oninput="app.onSchoolSearchInput()" onfocus="app.onSchoolSearchInput()"
+                                        onblur="setTimeout(() => document.getElementById('formSchoolResults').classList.add('hidden'), 150)"
+                                        class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-primary-500">
+                                    <input type="hidden" id="formSchoolSelect">
+                                    <div id="formSchoolResults" class="hidden absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto"></div>
+                                </div>
+                                <p class="text-[11px] text-slate-400" id="formSchoolCount"></p>
                             </div>
 
                             <div class="space-y-2">
@@ -275,7 +283,11 @@
                 <!-- VUE : REGISTRE COLLECTES -->
                 <section id="view-collectes" class="app-view hidden space-y-4">
                     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
-                        <h2 class="text-xl font-bold text-slate-900">Registre des Collectes</h2>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <h2 class="text-xl font-bold text-slate-900">Registre des Collectes</h2>
+                            <p class="text-xs text-slate-500" id="collectesCountLabel">-</p>
+                        </div>
+                        <input type="text" id="filterCollecteQuery" oninput="app.renderCollectesTable()" placeholder="Rechercher une école..." class="w-full sm:w-80 border border-slate-300 rounded-lg p-2 text-xs">
                         <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs">
                             <thead><tr class="bg-slate-100 text-slate-600 font-bold uppercase border-b">
                                 <th class="py-3 px-3">École</th><th class="py-3 px-3 text-center">Ouverte</th>
@@ -291,7 +303,11 @@
                 <!-- VUE : NON-RÉPONDANTS -->
                 <section id="view-non-respondents" class="app-view hidden space-y-4">
                     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
-                        <h2 class="text-xl font-bold text-slate-900"><i class="fa-solid fa-clock-rotate-left text-amber-500"></i> Écoles Non-Répondantes</h2>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <h2 class="text-xl font-bold text-slate-900"><i class="fa-solid fa-clock-rotate-left text-amber-500"></i> Écoles Non-Répondantes</h2>
+                            <input type="text" id="filterNonRespondentsQuery" oninput="app.renderNonRespondents()" placeholder="Rechercher une école..." class="w-full sm:w-80 border border-slate-300 rounded-lg p-2 text-xs">
+                        </div>
+                        <p class="text-xs text-slate-500" id="nonRespondentsCountLabel"></p>
                         <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs">
                             <thead><tr class="bg-slate-100 text-slate-600 font-bold uppercase border-b">
                                 <th class="py-3 px-3">Code</th><th class="py-3 px-3">École</th><th class="py-3 px-3">Commune</th>
@@ -543,6 +559,27 @@
         }
     };
 
+    // PostgREST (l'API de Supabase) plafonne toute lecture à 1000 lignes par
+    // défaut, quel que soit le nombre réel de lignes en base. Ce helper
+    // boucle avec .range() jusqu'à avoir tout récupéré — à utiliser pour
+    // toute table susceptible de dépasser 1000 lignes (écoles, communes,
+    // collectes, comptes utilisateurs).
+    async function fetchAllRows(table, build) {
+        const PAGE_SIZE = 1000;
+        let all = [];
+        let from = 0;
+        while (true) {
+            let query = sb.from(table).select('*');
+            if (build) query = build(query);
+            const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+            if (error) throw error;
+            all = all.concat(data || []);
+            if (!data || data.length < PAGE_SIZE) break;
+            from += PAGE_SIZE;
+        }
+        return all;
+    }
+
     // ---------------------------------------------------------------
     // APPLICATION
     // ---------------------------------------------------------------
@@ -576,18 +613,23 @@
             document.getElementById('userBadgeRole').innerText = profileRow.role;
         },
 
+        // PostgREST (l'API de Supabase) plafonne toute lecture à 1000 lignes
+        // par défaut, quel que soit le nombre réel de lignes en base. Ce
+        // helper boucle avec .range() jusqu'à avoir tout récupéré — à utiliser
+        // pour toute table susceptible de dépasser 1000 lignes (écoles,
+        // communes, collectes, comptes utilisateurs).
         async loadReferenceData() {
-            const [dep, com, sch, camp, settings] = await Promise.all([
+            const [dep, campRes, settings, communes, schools] = await Promise.all([
                 sb.from('departements').select('*').order('ordre'),
-                sb.from('communes').select('*'),
-                sb.from('ecoles').select('*').eq('actif', true),
                 sb.from('campagnes').select('*').order('date_campagne', { ascending: false }),
-                sb.from('app_settings').select('*').eq('id', 1).maybeSingle()
+                sb.from('app_settings').select('*').eq('id', 1).maybeSingle(),
+                fetchAllRows('communes'),
+                fetchAllRows('ecoles', q => q.eq('actif', true))
             ]);
             state.departments = dep.data || [];
-            state.communes = com.data || [];
-            state.schools = sch.data || [];
-            state.campaigns = camp.data || [];
+            state.campaigns = campRes.data || [];
+            state.communes = communes;
+            state.schools = schools;
             state.activeCampaignId = settings.data ? settings.data.active_campagne_id : null;
             await this.loadCollectesActiveCampaign();
             this.updateCampaignHeader();
@@ -595,25 +637,34 @@
 
         async loadCollectesActiveCampaign() {
             if (!state.activeCampaignId) { state.collectes = []; return; }
-            const { data } = await sb.from('collectes').select('*').eq('campagne_id', state.activeCampaignId);
-            state.collectes = data || [];
+            state.collectes = await fetchAllRows('collectes', q => q.eq('campagne_id', state.activeCampaignId));
         },
 
         subscribeRealtime() {
-            // Live updates: any insert/update on collectes for the active
-            // campaign refreshes whatever view is on screen right now.
+            // Une importation Excel peut déclencher des milliers d'événements
+            // en rafale (un par école insérée) : on regroupe (debounce) les
+            // rafraîchissements pour ne recharger qu'une fois le calme revenu,
+            // plutôt que de relancer une requête complète à chaque événement.
+            let collectesDebounce = null, schoolsDebounce = null;
+
             sb.channel('collectes-changes')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'collectes' }, async () => {
-                    await this.loadCollectesActiveCampaign();
-                    this.rerender();
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'collectes' }, () => {
+                    clearTimeout(collectesDebounce);
+                    collectesDebounce = setTimeout(async () => {
+                        await this.loadCollectesActiveCampaign();
+                        this.rerender();
+                    }, 600);
                 })
                 .subscribe();
+
             sb.channel('schools-changes')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'ecoles' }, async () => {
-                    const { data } = await sb.from('ecoles').select('*').eq('actif', true);
-                    state.schools = data || [];
-                    this.populateFormSchools();
-                    this.rerender();
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'ecoles' }, () => {
+                    clearTimeout(schoolsDebounce);
+                    schoolsDebounce = setTimeout(async () => {
+                        state.schools = await fetchAllRows('ecoles', q => q.eq('actif', true));
+                        this.populateFormSchools();
+                        this.rerender();
+                    }, 600);
                 })
                 .subscribe();
         },
@@ -675,12 +726,66 @@
             return state.schools.filter(s => s.id === state.profile.ecole_id);
         },
 
+        // Le nombre d'écoles (plusieurs milliers à l'échelle nationale) rend
+        // un <select> classique inutilisable pour Admin/Directeur : on utilise
+        // une recherche en direct (tape 3 lettres → résultats filtrés) plutôt
+        // qu'une liste déroulante géante.
         populateFormSchools() {
-            const sel = document.getElementById('formSchoolSelect');
-            if (!sel) return;
-            const allowed = this.schoolsForRole();
-            sel.innerHTML = allowed.map(s => `<option value="${s.id}">${s.nom}</option>`).join('');
-            if (allowed.length > 0) this.onSchoolChange(allowed[0].id);
+            const searchInput = document.getElementById('formSchoolSearch');
+            if (!searchInput) return;
+            this._allowedSchoolsCache = this.schoolsForRole();
+
+            const countLabel = document.getElementById('formSchoolCount');
+            if (countLabel) countLabel.innerText = `${this._allowedSchoolsCache.length} établissement(s) disponible(s)`;
+
+            if (this._allowedSchoolsCache.length === 1) {
+                // Un enseignant n'a qu'une seule école possible : on la
+                // pré-sélectionne et on verrouille le champ (rien à chercher).
+                const only = this._allowedSchoolsCache[0];
+                searchInput.value = only.nom;
+                searchInput.readOnly = true;
+                document.getElementById('formSchoolSelect').value = only.id;
+                this.onSchoolChange(only.id);
+            } else {
+                searchInput.readOnly = false;
+                if (!document.getElementById('formSchoolSelect').value) searchInput.value = '';
+            }
+        },
+
+        onSchoolSearchInput() {
+            const q = (document.getElementById('formSchoolSearch').value || '').trim().toLowerCase();
+            const resultsBox = document.getElementById('formSchoolResults');
+            const pool = this._allowedSchoolsCache || [];
+            const list = q
+                ? pool.filter(s => s.nom.toLowerCase().includes(q) || (s.code_ecole || '').toLowerCase().includes(q))
+                : pool;
+            const limited = list.slice(0, 50);
+
+            if (limited.length === 0) {
+                resultsBox.innerHTML = '<div class="p-3 text-xs text-slate-400">Aucune école ne correspond à cette recherche.</div>';
+            } else {
+                resultsBox.innerHTML = limited.map(s => {
+                    const commune = state.communes.find(c => c.id === s.commune_id);
+                    const dept = commune ? state.departments.find(d => d.id === commune.departement_id) : null;
+                    return `<button type="button" onmousedown="app.selectSchoolFromSearch('${s.id}')" class="w-full text-left px-3 py-2 hover:bg-primary-50 text-xs border-b border-slate-50 last:border-0">
+                        <span class="font-semibold text-slate-800">${s.nom}</span>
+                        <span class="block text-[10px] text-slate-400">${commune ? commune.nom : ''}${dept ? ' — ' + dept.nom : ''}</span>
+                    </button>`;
+                }).join('');
+                if (list.length > 50) {
+                    resultsBox.innerHTML += `<div class="p-2 text-[10px] text-slate-400 text-center border-t">+${list.length - 50} autre(s) résultat(s) — affinez votre recherche</div>`;
+                }
+            }
+            resultsBox.classList.remove('hidden');
+        },
+
+        selectSchoolFromSearch(schoolId) {
+            const school = (this._allowedSchoolsCache || []).find(s => s.id === schoolId);
+            if (!school) return;
+            document.getElementById('formSchoolSelect').value = schoolId;
+            document.getElementById('formSchoolSearch').value = school.nom;
+            document.getElementById('formSchoolResults').classList.add('hidden');
+            this.onSchoolChange(schoolId);
         },
 
         onSchoolChange(schoolId) {
@@ -696,6 +801,11 @@
                 this.setCanteenFunc(existing.cantine_fonctionnelle);
             } else {
                 document.getElementById('collecteForm').reset();
+                // reset() efface aussi le champ de recherche et l'ID caché :
+                // on les restaure juste après pour garder l'école sélectionnée.
+                document.getElementById('formSchoolSelect').value = schoolId;
+                const school = (this._allowedSchoolsCache || state.schools).find(s => s.id === schoolId);
+                if (school) document.getElementById('formSchoolSearch').value = school.nom;
                 this.setSchoolOpen(true);
                 this.setCanteenFunc(true);
             }
@@ -811,9 +921,18 @@
 
         renderCollectesTable() {
             const tbody = document.getElementById('collectesTableBody');
-            if (state.collectes.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-slate-400">Aucune collecte pour cette campagne.</td></tr>'; return; }
-            tbody.innerHTML = state.collectes.map(c => {
-                const school = state.schools.find(s => s.id === c.ecole_id);
+            const q = (document.getElementById('filterCollecteQuery')?.value || '').trim().toLowerCase();
+
+            const withSchool = state.collectes.map(c => ({ c, school: state.schools.find(s => s.id === c.ecole_id) }));
+            const filtered = q
+                ? withSchool.filter(({ school }) => school && school.nom.toLowerCase().includes(q))
+                : withSchool;
+
+            const countLabel = document.getElementById('collectesCountLabel');
+            if (countLabel) countLabel.innerText = `${filtered.length} collecte(s) sur ${state.collectes.length} au total`;
+
+            if (filtered.length === 0) { tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">${state.collectes.length === 0 ? 'Aucune collecte pour cette campagne.' : 'Aucune collecte ne correspond à cette recherche.'}</td></tr>`; return; }
+            tbody.innerHTML = filtered.map(({ c, school }) => {
                 const pres = (c.eleves_garcons || 0) + (c.eleves_filles || 0);
                 const fed = (c.nourris_garcons || 0) + (c.nourris_filles || 0);
                 return `<tr>
@@ -838,8 +957,23 @@
             const respondedIds = state.collectes.map(c => c.ecole_id);
             const missing = state.schools.filter(s => !respondedIds.includes(s.id));
             const tbody = document.getElementById('nonRespondentsBody');
+            const countLabel = document.getElementById('nonRespondentsCountLabel');
+            const queryEl = document.getElementById('filterNonRespondentsQuery');
+            const query = (queryEl ? queryEl.value : '').trim().toLowerCase();
+
+            const filtered = query
+                ? missing.filter(s => s.nom.toLowerCase().includes(query) || (s.code_ecole || '').toLowerCase().includes(query))
+                : missing;
+
+            if (countLabel) {
+                countLabel.textContent = query
+                    ? `${filtered.length} école(s) sur ${missing.length} non-répondante(s)`
+                    : `${missing.length} école(s) n'ont pas encore transmis leur rapport`;
+            }
+
             if (missing.length === 0) { tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-emerald-600 font-bold">Toutes les écoles ont transmis leur rapport !</td></tr>'; return; }
-            tbody.innerHTML = missing.map(s => {
+            if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-slate-400">Aucune école ne correspond à la recherche.</td></tr>'; return; }
+            tbody.innerHTML = filtered.map(s => {
                 const commune = state.communes.find(c => c.id === s.commune_id);
                 return `<tr><td class="py-2.5 px-3 font-mono">${s.code_ecole}</td><td class="py-2.5 px-3 font-bold">${s.nom}</td><td class="py-2.5 px-3">${commune ? commune.nom : '-'}</td></tr>`;
             }).join('');
@@ -1050,8 +1184,7 @@
                     created++;
                 }
 
-                const { data: refreshedSchools } = await sb.from('ecoles').select('*').eq('actif', true);
-                state.schools = refreshedSchools || [];
+                state.schools = await fetchAllRows('ecoles', q => q.eq('actif', true));
                 this.renderSchoolsTable();
                 this.populateFormSchools();
 
@@ -1069,9 +1202,14 @@
         },
 
         async renderUsersTable() {
-            const { data: users, error } = await sb.from('profils').select('*').order('created_at', { ascending: false });
+            let users;
+            try {
+                users = await fetchAllRows('profils', q => q.order('created_at', { ascending: false }));
+            } catch (error) {
+                document.getElementById('usersTableBody').innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500">${error.message}</td></tr>`;
+                return;
+            }
             const tbody = document.getElementById('usersTableBody');
-            if (error) { tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500">${error.message}</td></tr>`; return; }
             state._usersCache = users;
             tbody.innerHTML = users.map(u => {
                 const school = state.schools.find(s => s.id === u.ecole_id);
@@ -1177,8 +1315,7 @@
         },
 
         async runExcelExport() {
-            const { data: allCollectes } = await sb.from('collectes').select('*').eq('campagne_id', state.activeCampaignId);
-            const collectes = allCollectes || [];
+            const collectes = await fetchAllRows('collectes', q => q.eq('campagne_id', state.activeCampaignId));
             const wb = XLSX.utils.book_new();
 
             const globalData = [
@@ -1227,7 +1364,7 @@
     // INITIALISATION
     // ---------------------------------------------------------------
     window.addEventListener('load', () => {
-        if (SUPABASE_CONFIG.url.includes('COLLEZ_ICI') || SUPABASE_CONFIG.anonKey.includes('COLLEZ_ICI')) {
+        if (SUPABASE_CONFIG.url.includes('https://bvmojrvakqpzsmcqpcgo.supabase.co') || SUPABASE_CONFIG.anonKey.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bW9qcnZha3FwenNtY3FwY2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzODY1MDEsImV4cCI6MjEwNTk2MjUwMX0.C7IHOHOCuTf5VsfGKCC933T1-STus5xTvt7WCWz0ro0')) {
             hide('loadingScreen');
             show('configMissingScreen');
             return;
