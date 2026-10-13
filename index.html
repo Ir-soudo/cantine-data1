@@ -15,6 +15,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- ExcelJS : utilisé uniquement pour la génération du fichier Excel officiel
+         (export), car il sait insérer de vraies images (logo ANAN) et fusionner des
+         cellules d'en-tête — contrairement à SheetJS/xlsx (ci-dessus, gardé pour
+         l'import) qui ne gère pas l'écriture d'images en version gratuite. -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -382,6 +387,65 @@
                     </div>
                 </section>
 
+                <!-- VUE : MON SECTEUR (Médiateur) -->
+                <section id="view-secteur" class="app-view hidden space-y-4">
+                    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-6 rounded-2xl text-white">
+                        <span class="text-xs uppercase font-bold text-emerald-400">Mon Secteur</span>
+                        <h2 class="text-2xl font-black" id="secteurCampaignTitle">-</h2>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <h3 class="font-bold text-slate-900 text-sm">Avancement de la collecte</h3>
+                                <p class="text-xs text-slate-500" id="secteurProgressLabel">-</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="app.runExcelExportMediateur()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl"><i class="fa-solid fa-file-export mr-1"></i> Générer mon fichier</button>
+                                <button id="btnValiderSecteur" onclick="app.validerSecteur()" class="bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl"><i class="fa-solid fa-check-double mr-1"></i> Valider mon secteur</button>
+                            </div>
+                        </div>
+                        <div id="secteurValidationBadge"></div>
+                        <div class="w-full bg-slate-100 rounded-full h-2.5"><div id="secteurProgressBar" class="bg-emerald-500 h-2.5 rounded-full" style="width:0%"></div></div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                        <input type="text" id="filterSecteurQuery" oninput="app.renderSecteurView()" placeholder="Rechercher une école..." class="w-full sm:w-80 border border-slate-300 rounded-lg p-2 text-xs">
+                        <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs">
+                            <thead><tr class="bg-slate-100 text-slate-600 font-bold uppercase border-b">
+                                <th class="py-3 px-3">Commune</th><th class="py-3 px-3">École</th><th class="py-3 px-3 text-center">Statut</th>
+                                <th class="py-3 px-3 text-right">Présents</th><th class="py-3 px-3 text-right">Nourris</th>
+                            </tr></thead>
+                            <tbody id="secteurTableBody" class="divide-y"></tbody>
+                        </table></div>
+                    </div>
+                </section>
+
+                <!-- VUE : MA SUPERVISION (Superviseur) -->
+                <section id="view-supervision" class="app-view hidden space-y-4">
+                    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-6 rounded-2xl text-white">
+                        <span class="text-xs uppercase font-bold text-emerald-400">Ma Supervision</span>
+                        <h2 class="text-2xl font-black" id="supervisionCampaignTitle">-</h2>
+                    </div>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" id="supervisionKpis"></div>
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <h3 class="font-bold text-slate-900 text-sm">Mes Médiateurs</h3>
+                            <div class="flex items-center gap-2">
+                                <button onclick="app.runExcelExportSuperviseur()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl"><i class="fa-solid fa-file-export mr-1"></i> Générer le point complet</button>
+                                <button id="btnValiderSupervision" onclick="app.validerSupervision()" class="bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl"><i class="fa-solid fa-check-double mr-1"></i> Valider ma supervision</button>
+                            </div>
+                        </div>
+                        <div id="supervisionValidationBadge"></div>
+                        <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs">
+                            <thead><tr class="bg-slate-100 text-slate-600 font-bold uppercase border-b">
+                                <th class="py-3 px-3">Médiateur</th><th class="py-3 px-3 text-center">Communes</th>
+                                <th class="py-3 px-3 text-center">Écoles</th><th class="py-3 px-3 text-center">Réponses</th>
+                                <th class="py-3 px-3 text-center">Validation</th>
+                            </tr></thead>
+                            <tbody id="supervisionMediateursBody" class="divide-y"></tbody>
+                        </table></div>
+                    </div>
+                </section>
+
                 <!-- VUE : EXPORT -->
                 <section id="view-export" class="app-view hidden">
                     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
@@ -445,6 +509,38 @@
         </div>
     </div>
 
+    <!-- MODAL : AFFECTER DES COMMUNES À UN MÉDIATEUR -->
+    <div id="assignCommunesModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4">
+            <h3 class="font-bold text-lg">Affecter des Communes</h3>
+            <p class="text-xs text-slate-500" id="assignCommunesUserLabel">-</p>
+            <p class="text-[11px] text-slate-400">Le Médiateur consultera et consolidera les données de toutes les écoles des communes cochées.</p>
+            <form onsubmit="app.handleAssignCommunes(event)" class="space-y-3 text-xs">
+                <div id="assignCommunesList" class="max-h-72 overflow-y-auto border rounded-lg p-1"></div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="ui.closeModal('assignCommunesModal')" class="px-3 py-2 bg-slate-200 rounded-lg font-bold">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg font-bold">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL : AFFECTER DES MÉDIATEURS À UN SUPERVISEUR -->
+    <div id="assignMediateursModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4">
+            <h3 class="font-bold text-lg">Affecter des Médiateurs</h3>
+            <p class="text-xs text-slate-500" id="assignMediateursUserLabel">-</p>
+            <p class="text-[11px] text-slate-400">Le Superviseur consultera et validera les synthèses des Médiateurs cochés.</p>
+            <form onsubmit="app.handleAssignMediateurs(event)" class="space-y-3 text-xs">
+                <div id="assignMediateursList" class="max-h-72 overflow-y-auto border rounded-lg p-1"></div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="ui.closeModal('assignMediateursModal')" class="px-3 py-2 bg-slate-200 rounded-lg font-bold">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg font-bold">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL : NOUVELLE CAMPAGNE -->
     <div id="addCampaignModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4">
@@ -465,6 +561,10 @@
     // CANTINE DATA — Moteur applicatif connecté à Supabase
     // ================================================================
 
+    // Logo ANAN (Agence Nationale de l'Alimentation et de la Nutrition), encodé en base64,
+    // utilisé pour l'en-tête du fichier Excel officiel généré par l'export (voir runExcelExport).
+    const ANAN_LOGO_BASE64 = "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";
+
     let sb = null;
     const state = {
         session: null,
@@ -475,6 +575,11 @@
         campaigns: [],
         activeCampaignId: null,
         collectes: [],
+        mediateurCommunes: [],   // tous les rattachements Médiateur->Commune visibles pour l'utilisateur courant (scopé par RLS)
+        mesMediateurs: [],       // si Superviseur : les profils Médiateur qui lui sont rattachés
+        validationMediateur: null,     // si Médiateur : sa ligne de validation pour la campagne active (ou null)
+        validationsMediateurMap: {},   // si Superviseur : { mediateur_id: ligne_validation }
+        validationSuperviseur: null,   // si Superviseur : sa propre validation pour la campagne active
         currentView: 'dashboard',
         formSchoolOpen: true,
         formCanteenFunc: true
@@ -595,7 +700,10 @@
             }
             state.profile = profileRow;
 
-            const needsSchool = profileRow.role !== 'ADMIN' && !profileRow.ecole_id;
+            // Seuls Enseignant et Directeur (saisie par école) ont besoin d'une
+            // école affectée pour démarrer ; Médiateur/Superviseur n'ont besoin
+            // d'aucun rattachement école (le leur se fait par communes/médiateurs).
+            const needsSchool = ['ENSEIGNANT', 'DIRECTEUR'].includes(profileRow.role) && !profileRow.ecole_id;
             if (!profileRow.actif || needsSchool) {
                 hide('loadingScreen'); hide('authScreen');
                 show('pendingScreen');
@@ -604,7 +712,8 @@
 
             await this.loadReferenceData();
             this.renderSidebar();
-            this.navigateTo(profileRow.role === 'ENSEIGNANT' ? 'form' : 'dashboard');
+            const landingByRole = { ENSEIGNANT: 'form', MEDIATEUR: 'secteur', SUPERVISEUR: 'supervision' };
+            this.navigateTo(landingByRole[profileRow.role] || 'dashboard');
             this.subscribeRealtime();
 
             hide('loadingScreen'); hide('authScreen'); hide('pendingScreen');
@@ -631,8 +740,30 @@
             state.communes = communes;
             state.schools = schools;
             state.activeCampaignId = settings.data ? settings.data.active_campagne_id : null;
+            state.mediateurCommunes = await fetchAllRows('mediateur_communes');
+            if (state.profile.role === 'SUPERVISEUR') {
+                state.mesMediateurs = await fetchAllRows('profils', q => q.eq('role', 'MEDIATEUR').eq('superviseur_id', state.profile.id));
+            }
             await this.loadCollectesActiveCampaign();
+            await this.loadValidations();
             this.updateCampaignHeader();
+        },
+
+        // Charge le statut de validation (Médiateur et/ou Superviseur) pour la
+        // campagne active — affiché dans les vues "Mon Secteur"/"Ma Supervision".
+        async loadValidations() {
+            if (!state.activeCampaignId) { state.validationMediateur = null; state.validationsMediateurMap = {}; state.validationSuperviseur = null; return; }
+            const role = state.profile.role;
+            if (role === 'MEDIATEUR') {
+                const rows = await fetchAllRows('validations_mediateur', q => q.eq('campagne_id', state.activeCampaignId).eq('mediateur_id', state.profile.id));
+                state.validationMediateur = rows[0] || null;
+            } else if (role === 'SUPERVISEUR') {
+                const rows = await fetchAllRows('validations_mediateur', q => q.eq('campagne_id', state.activeCampaignId));
+                state.validationsMediateurMap = {};
+                rows.forEach(r => { state.validationsMediateurMap[r.mediateur_id] = r; });
+                const myRows = await fetchAllRows('validations_superviseur', q => q.eq('campagne_id', state.activeCampaignId).eq('superviseur_id', state.profile.id));
+                state.validationSuperviseur = myRows[0] || null;
+            }
         },
 
         async loadCollectesActiveCampaign() {
@@ -681,6 +812,8 @@
             const role = state.profile.role;
             const items = [
                 { id: 'form', label: 'Saisie Cantine', icon: 'fa-mobile-screen', roles: ['ENSEIGNANT', 'DIRECTEUR', 'ADMIN'] },
+                { id: 'secteur', label: 'Mon Secteur', icon: 'fa-map-location-dot', roles: ['MEDIATEUR'] },
+                { id: 'supervision', label: 'Ma Supervision', icon: 'fa-sitemap', roles: ['SUPERVISEUR'] },
                 { id: 'dashboard', label: 'Dashboard National', icon: 'fa-chart-pie', roles: ['ADMIN', 'DIRECTEUR'] },
                 { id: 'collectes', label: 'Registre des Collectes', icon: 'fa-list-check', roles: ['ADMIN', 'DIRECTEUR'] },
                 { id: 'non-respondents', label: 'Écoles Non-Répondantes', icon: 'fa-triangle-exclamation', roles: ['ADMIN', 'DIRECTEUR'] },
@@ -719,11 +852,28 @@
             if (v === 'schools') this.renderSchoolsTable();
             if (v === 'users') this.renderUsersTable();
             if (v === 'campaigns') this.renderCampaignsTable();
+            if (v === 'secteur') this.renderSecteurView();
+            if (v === 'supervision') this.renderSupervisionView();
         },
 
         schoolsForRole() {
-            if (state.profile.role === 'ADMIN' || state.profile.role === 'DIRECTEUR') return state.schools;
+            const role = state.profile.role;
+            if (role === 'ADMIN' || role === 'DIRECTEUR') return state.schools;
+            if (role === 'MEDIATEUR') {
+                const myCommunes = this.mesCommunesIds();
+                return state.schools.filter(s => myCommunes.has(s.commune_id));
+            }
+            if (role === 'SUPERVISEUR') {
+                const myMediateurIds = new Set(state.mesMediateurs.map(m => m.id));
+                const myCommunes = new Set(state.mediateurCommunes.filter(mc => myMediateurIds.has(mc.mediateur_id)).map(mc => mc.commune_id));
+                return state.schools.filter(s => myCommunes.has(s.commune_id));
+            }
             return state.schools.filter(s => s.id === state.profile.ecole_id);
+        },
+
+        // Les communes rattachées au Médiateur courant (lui-même, si c'est son rôle).
+        mesCommunesIds() {
+            return new Set(state.mediateurCommunes.filter(mc => mc.mediateur_id === state.profile.id).map(mc => mc.commune_id));
         },
 
         // Le nombre d'écoles (plusieurs milliers à l'échelle nationale) rend
@@ -955,7 +1105,7 @@
 
         renderNonRespondents() {
             const respondedIds = state.collectes.map(c => c.ecole_id);
-            const missing = state.schools.filter(s => !respondedIds.includes(s.id));
+            const missing = this.schoolsForRole().filter(s => !respondedIds.includes(s.id));
             const tbody = document.getElementById('nonRespondentsBody');
             const countLabel = document.getElementById('nonRespondentsCountLabel');
             const queryEl = document.getElementById('filterNonRespondentsQuery');
@@ -1211,11 +1361,31 @@
             }
             const tbody = document.getElementById('usersTableBody');
             state._usersCache = users;
+            // Nécessaire pour compter les communes/médiateurs déjà affectés à
+            // chaque utilisateur dans la colonne "Rattachement" ci-dessous.
+            state._allMediateurCommunesCache = await fetchAllRows('mediateur_communes');
+
             tbody.innerHTML = users.map(u => {
-                const school = state.schools.find(s => s.id === u.ecole_id);
-                const commune = school ? state.communes.find(c => c.id === school.commune_id) : null;
-                const dept = commune ? state.departments.find(d => d.id === commune.departement_id) : null;
-                const schoolLabel = school ? `${school.nom}${dept ? ' — ' + dept.nom : ''}` : 'Non affectée';
+                let rattachementCell;
+                if (u.role === 'MEDIATEUR') {
+                    const n = state._allMediateurCommunesCache.filter(mc => mc.mediateur_id === u.id).length;
+                    rattachementCell = `<button onclick="app.openAssignCommunesModal('${u.id}')" class="text-left w-full hover:underline ${n ? 'text-slate-800 font-semibold' : 'text-amber-600 font-bold'}">
+                        <i class="fa-solid fa-map-location-dot mr-1"></i> ${n ? n + ' commune(s)' : 'Aucune commune'}
+                    </button>`;
+                } else if (u.role === 'SUPERVISEUR') {
+                    const n = users.filter(x => x.role === 'MEDIATEUR' && x.superviseur_id === u.id).length;
+                    rattachementCell = `<button onclick="app.openAssignMediateursModal('${u.id}')" class="text-left w-full hover:underline ${n ? 'text-slate-800 font-semibold' : 'text-amber-600 font-bold'}">
+                        <i class="fa-solid fa-sitemap mr-1"></i> ${n ? n + ' médiateur(s)' : 'Aucun médiateur'}
+                    </button>`;
+                } else {
+                    const school = state.schools.find(s => s.id === u.ecole_id);
+                    const commune = school ? state.communes.find(c => c.id === school.commune_id) : null;
+                    const dept = commune ? state.departments.find(d => d.id === commune.departement_id) : null;
+                    const schoolLabel = school ? `${school.nom}${dept ? ' — ' + dept.nom : ''}` : 'Non affectée';
+                    rattachementCell = `<button onclick="app.openAssignSchoolModal('${u.id}')" class="text-left w-full hover:underline ${school ? 'text-slate-800 font-semibold' : 'text-amber-600 font-bold'}">
+                        <i class="fa-solid fa-school mr-1"></i> ${schoolLabel}
+                    </button>`;
+                }
                 return `<tr>
                     <td class="py-2.5 px-3 font-bold">${u.prenom} ${u.nom}</td>
                     <td class="py-2.5 px-3">${u.email}</td>
@@ -1223,14 +1393,12 @@
                         <select onchange="app.updateUserRole('${u.id}', this.value)" class="border rounded p-1 text-[10px] font-bold">
                             <option value="ENSEIGNANT" ${u.role === 'ENSEIGNANT' ? 'selected' : ''}>ENSEIGNANT</option>
                             <option value="DIRECTEUR" ${u.role === 'DIRECTEUR' ? 'selected' : ''}>DIRECTEUR</option>
+                            <option value="MEDIATEUR" ${u.role === 'MEDIATEUR' ? 'selected' : ''}>MÉDIATEUR</option>
+                            <option value="SUPERVISEUR" ${u.role === 'SUPERVISEUR' ? 'selected' : ''}>SUPERVISEUR</option>
                             <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>ADMIN</option>
                         </select>
                     </td>
-                    <td class="py-2.5 px-3">
-                        <button onclick="app.openAssignSchoolModal('${u.id}')" class="text-left w-full hover:underline ${school ? 'text-slate-800 font-semibold' : 'text-amber-600 font-bold'}">
-                            <i class="fa-solid fa-school mr-1"></i> ${schoolLabel}
-                        </button>
-                    </td>
+                    <td class="py-2.5 px-3">${rattachementCell}</td>
                     <td class="py-2.5 px-3 text-center">
                         <button onclick="app.updateUserActive('${u.id}', ${!u.actif})" class="text-xs ${u.actif ? 'text-emerald-600' : 'text-slate-400'}"><i class="fa-solid ${u.actif ? 'fa-toggle-on' : 'fa-toggle-off'} text-base"></i></button>
                     </td>
@@ -1284,6 +1452,101 @@
             else { ui.banner(actif ? "Compte réactivé." : "Compte désactivé."); this.renderUsersTable(); }
         },
 
+        // ---------------------------------------------------------------
+        // AFFECTATION : MÉDIATEUR -> COMMUNES (liste à cocher groupée par
+        // département — un Médiateur peut couvrir des communes de
+        // plusieurs départements).
+        // ---------------------------------------------------------------
+        openAssignCommunesModal(userId) {
+            const user = (state._usersCache || []).find(u => u.id === userId);
+            if (!user) return;
+            this._assigningUserId = userId;
+            document.getElementById('assignCommunesUserLabel').innerText = `Pour : ${user.prenom} ${user.nom} (${user.email})`;
+
+            const myCommuneIds = new Set((state._allMediateurCommunesCache || []).filter(mc => mc.mediateur_id === userId).map(mc => mc.commune_id));
+            const box = document.getElementById('assignCommunesList');
+            box.innerHTML = state.departments.map(dept => {
+                const communesDept = state.communes.filter(c => c.departement_id === dept.id);
+                if (!communesDept.length) return '';
+                return `<div class="mb-2">
+                    <p class="font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded">${dept.nom}</p>
+                    ${communesDept.map(c => `
+                        <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 cursor-pointer">
+                            <input type="checkbox" value="${c.id}" class="assign-commune-checkbox" ${myCommuneIds.has(c.id) ? 'checked' : ''}>
+                            <span>${c.nom}</span>
+                        </label>`).join('')}
+                </div>`;
+            }).join('');
+            ui.openModal('assignCommunesModal');
+        },
+
+        async handleAssignCommunes(e) {
+            e.preventDefault();
+            const checked = Array.from(document.querySelectorAll('.assign-commune-checkbox:checked')).map(el => el.value);
+            const current = (state._allMediateurCommunesCache || []).filter(mc => mc.mediateur_id === this._assigningUserId);
+            const currentIds = current.map(mc => mc.commune_id);
+            const toAdd = checked.filter(id => !currentIds.includes(id));
+            const toRemove = current.filter(mc => !checked.includes(mc.commune_id));
+
+            if (toAdd.length) {
+                const { error } = await sb.from('mediateur_communes').insert(toAdd.map(commune_id => ({ mediateur_id: this._assigningUserId, commune_id })));
+                if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+            }
+            if (toRemove.length) {
+                const { error } = await sb.from('mediateur_communes').delete().in('id', toRemove.map(r => r.id));
+                if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+            }
+            ui.closeModal('assignCommunesModal');
+            ui.banner("Communes affectées avec succès !");
+            this.renderUsersTable();
+        },
+
+        // ---------------------------------------------------------------
+        // AFFECTATION : SUPERVISEUR -> MÉDIATEURS (liste à cocher parmi
+        // tous les comptes de rôle MÉDIATEUR).
+        // ---------------------------------------------------------------
+        openAssignMediateursModal(userId) {
+            const user = (state._usersCache || []).find(u => u.id === userId);
+            if (!user) return;
+            this._assigningUserId = userId;
+            document.getElementById('assignMediateursUserLabel').innerText = `Pour : ${user.prenom} ${user.nom} (${user.email})`;
+
+            const allMediateurs = (state._usersCache || []).filter(u => u.role === 'MEDIATEUR');
+            const box = document.getElementById('assignMediateursList');
+            if (!allMediateurs.length) {
+                box.innerHTML = `<p class="text-slate-400 p-2">Aucun compte Médiateur créé pour l'instant.</p>`;
+            } else {
+                box.innerHTML = allMediateurs.map(m => {
+                    const takenByOther = m.superviseur_id && m.superviseur_id !== userId;
+                    return `<label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 cursor-pointer ${takenByOther ? 'opacity-50' : ''}">
+                        <input type="checkbox" value="${m.id}" class="assign-mediateur-checkbox" ${m.superviseur_id === userId ? 'checked' : ''}>
+                        <span>${m.prenom} ${m.nom}${takenByOther ? ' (déjà sous un autre superviseur)' : ''}</span>
+                    </label>`;
+                }).join('');
+            }
+            ui.openModal('assignMediateursModal');
+        },
+
+        async handleAssignMediateurs(e) {
+            e.preventDefault();
+            const checked = new Set(Array.from(document.querySelectorAll('.assign-mediateur-checkbox:checked')).map(el => el.value));
+            const allMediateurs = (state._usersCache || []).filter(u => u.role === 'MEDIATEUR');
+            const toAttach = allMediateurs.filter(m => checked.has(m.id) && m.superviseur_id !== this._assigningUserId).map(m => m.id);
+            const toDetach = allMediateurs.filter(m => !checked.has(m.id) && m.superviseur_id === this._assigningUserId).map(m => m.id);
+
+            if (toAttach.length) {
+                const { error } = await sb.from('profils').update({ superviseur_id: this._assigningUserId }).in('id', toAttach);
+                if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+            }
+            if (toDetach.length) {
+                const { error } = await sb.from('profils').update({ superviseur_id: null }).in('id', toDetach);
+                if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+            }
+            ui.closeModal('assignMediateursModal');
+            ui.banner("Médiateurs affectés avec succès !");
+            this.renderUsersTable();
+        },
+
         renderCampaignsTable() {
             const tbody = document.getElementById('campaignsTableBody');
             tbody.innerHTML = state.campaigns.map(c => `
@@ -1314,48 +1577,669 @@
             ui.banner("Campagne active mise à jour pour tous les utilisateurs !");
         },
 
+        // Génère le fichier Excel officiel au format exact du modèle ANAN (logo,
+        // en-têtes fusionnés Département/Communes/Ecoles, Effectif des élèves
+        // présents en Garçons/Filles/Total, Effectif d'enfants nourris en
+        // Garçons/Filles/Total, Taux de fonctionnement en formule), avec une
+        // feuille "Synthèse Globale" (par commune, sous-totaux par département)
+        // suivie d'une feuille par département (détail école par école). Utilise
+        // ExcelJS car SheetJS (xlsx) ne sait pas insérer de vraies images.
         async runExcelExport() {
+            ui.banner("Génération du fichier Excel en cours…");
             const collectes = await fetchAllRows('collectes', q => q.eq('campagne_id', state.activeCampaignId));
-            const wb = XLSX.utils.book_new();
+            const campaign = state.campaigns.find(c => c.id === state.activeCampaignId);
+            const dateLabel = (campaign && campaign.date_campagne)
+                ? new Date(campaign.date_campagne).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+                : new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-            const globalData = [
-                ["MINISTÈRE DE L'ENSEIGNEMENT MATERNEL ET PRIMAIRE"],
-                ["POINT DE FONCTIONNEMENT DES CANTINES SCOLAIRES"], [""],
-                ["N°", "DÉPARTEMENT", "ÉCOLES", "RÉPONSES", "OUVERTES", "CANTINES FUNC.", "TAUX", "PRÉSENTS G", "PRÉSENTS F", "TOTAL PRÉSENTS", "NOURRIS G", "NOURRIS F", "TOTAL NOURRIS"]
-            ];
-            state.departments.forEach((dept, i) => {
-                const communeIds = state.communes.filter(c => c.departement_id === dept.id).map(c => c.id);
-                const deptSchools = state.schools.filter(s => communeIds.includes(s.commune_id));
-                const deptSchoolIds = deptSchools.map(s => s.id);
-                const deptCol = collectes.filter(c => deptSchoolIds.includes(c.ecole_id));
-                const openCount = deptCol.filter(c => c.ecole_ouverte).length;
-                const funcCount = deptCol.filter(c => c.ecole_ouverte && c.cantine_fonctionnelle).length;
-                let pg = 0, pf = 0, fg = 0, ff = 0;
-                deptCol.forEach(c => { pg += c.eleves_garcons || 0; pf += c.eleves_filles || 0; fg += c.nourris_garcons || 0; ff += c.nourris_filles || 0; });
-                const rate = openCount > 0 ? ((funcCount / openCount) * 100).toFixed(1) + '%' : 'N/A';
-                globalData.push([i + 1, dept.nom, deptSchools.length, deptCol.length, openCount, funcCount, rate, pg, pf, pg + pf, fg, ff, fg + ff]);
-            });
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(globalData), "Synthèse Globale");
+            const wb = new ExcelJS.Workbook();
+            wb.creator = 'CANTINE DATA';
+            wb.created = new Date();
+            const logoId = wb.addImage({ base64: ANAN_LOGO_BASE64, extension: 'png' });
 
-            state.departments.forEach(dept => {
-                const communeIds = state.communes.filter(c => c.departement_id === dept.id).map(c => c.id);
-                const deptSchools = state.schools.filter(s => communeIds.includes(s.commune_id));
-                const sheetData = [[`DÉPARTEMENT DE L'${dept.nom}`], [""],
-                    ["COMMUNE", "CODE", "ÉCOLE", "OUVERTE", "CANTINE", "MOTIF", "PRÉSENTS G", "PRÉSENTS F", "NOURRIS G", "NOURRIS F", "OBSERVATIONS"]];
-                deptSchools.forEach(s => {
-                    const commune = state.communes.find(c => c.id === s.commune_id);
-                    const col = collectes.find(c => c.ecole_id === s.id);
-                    if (col) {
-                        sheetData.push([commune ? commune.nom : '', s.code_ecole, s.nom, col.ecole_ouverte ? 1 : 0, col.cantine_fonctionnelle ? 1 : 0,
-                            col.raison_non_fonctionnement || '', col.eleves_garcons || 0, col.eleves_filles || 0, col.nourris_garcons || 0, col.nourris_filles || 0, col.observation || '']);
-                    } else {
-                        sheetData.push([commune ? commune.nom : '', s.code_ecole, s.nom, 'NON RÉPONDU', 'NON RÉPONDU', '', '', '', '', '', '']);
-                    }
+            const THIN = { style: 'thin', color: { argb: 'FFCBD5E1' } };
+            const BORDER_ALL = { top: THIN, bottom: THIN, left: THIN, right: THIN };
+
+            function styleHeaderRow(row) {
+                row.eachCell(cell => {
+                    cell.font = { bold: true, size: 9 };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+                    cell.border = BORDER_ALL;
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
                 });
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheetData), dept.nom.substring(0, 31));
+            }
+
+            function addHeaderBlock(ws, title) {
+                ws.addImage(logoId, { tl: { col: 0.1, row: 0.1 }, ext: { width: 210, height: 110 } });
+                const titleRow = ws.getRow(7);
+                titleRow.getCell(2).value = title;
+                titleRow.getCell(2).font = { bold: true, size: 14 };
+                const dateRow = ws.getRow(9);
+                dateRow.getCell(2).value = `Date : ${dateLabel}`;
+                dateRow.getCell(2).font = { bold: true, size: 11 };
+                for (let r = 1; r <= 6; r++) ws.getRow(r).height = 15;
+            }
+
+            // ============ FEUILLE : SYNTHÈSE GLOBALE (par commune) ============
+            const wsSynth = wb.addWorksheet('Synthèse Globale', { views: [{ state: 'frozen', ySplit: 12 }] });
+            wsSynth.columns = [
+                { width: 16 }, { width: 16 }, { width: 11 }, { width: 13 }, { width: 13 },
+                { width: 20 }, { width: 10 }, { width: 9 }, { width: 9 }, { width: 9 },
+                { width: 9 }, { width: 9 }, { width: 9 }
+            ];
+            addHeaderBlock(wsSynth, 'Point de fonctionnement des cantines');
+            wsSynth.getRow(11).values = ['Département', 'Commune', "Nombre d'écoles bénéficiaires", 'Ecole ouverte (Oui: 1; Non: 0)', 'Fonctionnement cantine (Oui: 1; Non: 0)', 'Raisons de non fonctionnement', 'Taux de fonctionnement', 'Effectif des élèves présents à cette date', '', '', "Effectif d'enfants nourris", '', ''];
+            wsSynth.getRow(12).values = ['', '', '', '', '', '', '', 'Garçons', 'Filles', 'Total', 'Garçons', 'Filles', 'Total'];
+            [1, 2, 3, 4, 5, 6, 7].forEach(c => wsSynth.mergeCells(11, c, 12, c));
+            wsSynth.mergeCells(11, 8, 11, 10);
+            wsSynth.mergeCells(11, 11, 11, 13);
+            styleHeaderRow(wsSynth.getRow(11));
+            styleHeaderRow(wsSynth.getRow(12));
+
+            let synthRow = 13;
+            let grandSchools = 0, grandOpen = 0, grandFunc = 0, grandPG = 0, grandPF = 0, grandFG = 0, grandFF = 0;
+            state.departments.forEach(dept => {
+                const deptCommunes = state.communes.filter(c => c.departement_id === dept.id);
+                const deptStartRow = synthRow;
+                deptCommunes.forEach(commune => {
+                    const communeSchools = state.schools.filter(s => s.commune_id === commune.id);
+                    const schoolIds = communeSchools.map(s => s.id);
+                    const communeCol = collectes.filter(c => schoolIds.includes(c.ecole_id));
+                    const open = communeCol.filter(c => c.ecole_ouverte).length;
+                    const func = communeCol.filter(c => c.ecole_ouverte && c.cantine_fonctionnelle).length;
+                    let pg = 0, pf = 0, fg = 0, ff = 0;
+                    communeCol.forEach(c => { pg += c.eleves_garcons || 0; pf += c.eleves_filles || 0; fg += c.nourris_garcons || 0; ff += c.nourris_filles || 0; });
+                    const r = wsSynth.getRow(synthRow);
+                    r.getCell(1).value = (synthRow === deptStartRow) ? dept.nom : '';
+                    r.getCell(2).value = commune.nom;
+                    r.getCell(3).value = communeSchools.length;
+                    r.getCell(4).value = open;
+                    r.getCell(5).value = func;
+                    r.getCell(7).value = { formula: `IF(D${synthRow}=0,0,E${synthRow}/D${synthRow})` };
+                    r.getCell(7).numFmt = '0%';
+                    r.getCell(8).value = pg; r.getCell(9).value = pf;
+                    r.getCell(10).value = { formula: `H${synthRow}+I${synthRow}` };
+                    r.getCell(11).value = fg; r.getCell(12).value = ff;
+                    r.getCell(13).value = { formula: `K${synthRow}+L${synthRow}` };
+                    r.eachCell({ includeEmpty: true }, c => { c.border = BORDER_ALL; c.font = { size: 9 }; });
+                    grandSchools += communeSchools.length; grandOpen += open; grandFunc += func;
+                    grandPG += pg; grandPF += pf; grandFG += fg; grandFF += ff;
+                    synthRow++;
+                });
+                const deptEndRow = synthRow - 1;
+                const tRow = wsSynth.getRow(synthRow);
+                tRow.getCell(1).value = `TOTAL ${dept.nom}`;
+                tRow.getCell(3).value = { formula: `SUM(C${deptStartRow}:C${deptEndRow})` };
+                tRow.getCell(4).value = { formula: `SUM(D${deptStartRow}:D${deptEndRow})` };
+                tRow.getCell(5).value = { formula: `SUM(E${deptStartRow}:E${deptEndRow})` };
+                tRow.getCell(7).value = { formula: `IF(D${synthRow}=0,0,E${synthRow}/D${synthRow})` };
+                tRow.getCell(7).numFmt = '0%';
+                tRow.getCell(8).value = { formula: `SUM(H${deptStartRow}:H${deptEndRow})` };
+                tRow.getCell(9).value = { formula: `SUM(I${deptStartRow}:I${deptEndRow})` };
+                tRow.getCell(10).value = { formula: `SUM(J${deptStartRow}:J${deptEndRow})` };
+                tRow.getCell(11).value = { formula: `SUM(K${deptStartRow}:K${deptEndRow})` };
+                tRow.getCell(12).value = { formula: `SUM(L${deptStartRow}:L${deptEndRow})` };
+                tRow.getCell(13).value = { formula: `SUM(M${deptStartRow}:M${deptEndRow})` };
+                tRow.eachCell({ includeEmpty: true }, c => { c.font = { bold: true, size: 9 }; c.border = BORDER_ALL; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; });
+                synthRow++;
+            });
+            const grRow = wsSynth.getRow(synthRow);
+            grRow.getCell(1).value = 'TOTAL GÉNÉRAL';
+            grRow.getCell(3).value = grandSchools; grRow.getCell(4).value = grandOpen; grRow.getCell(5).value = grandFunc;
+            grRow.getCell(7).value = grandOpen > 0 ? grandFunc / grandOpen : 0; grRow.getCell(7).numFmt = '0%';
+            grRow.getCell(8).value = grandPG; grRow.getCell(9).value = grandPF; grRow.getCell(10).value = grandPG + grandPF;
+            grRow.getCell(11).value = grandFG; grRow.getCell(12).value = grandFF; grRow.getCell(13).value = grandFG + grandFF;
+            grRow.eachCell({ includeEmpty: true }, c => { c.font = { bold: true, size: 10 }; c.border = BORDER_ALL; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } }; });
+
+            // ============ UNE FEUILLE PAR DÉPARTEMENT (détail école par école) ============
+            state.departments.forEach(dept => {
+                const ws = wb.addWorksheet(dept.nom.substring(0, 31), { views: [{ state: 'frozen', ySplit: 12 }] });
+                ws.columns = [
+                    { width: 14 }, { width: 16 }, { width: 28 }, { width: 13 }, { width: 13 },
+                    { width: 20 }, { width: 10 }, { width: 9 }, { width: 9 }, { width: 9 },
+                    { width: 9 }, { width: 9 }, { width: 9 }, { width: 22 }
+                ];
+                addHeaderBlock(ws, `Point de fonctionnement des cantines — ${dept.nom}`);
+                ws.getRow(11).values = ['Département', 'Communes', 'Ecoles', 'Ecole ouverte (Oui: 1; Non: 0)', 'Fonctionnement cantine (Oui: 1; Non: 0)', 'Raisons de non fonctionnement', 'Taux de fonctionnement', 'Effectif des élèves présents à cette date', '', '', "Effectif d'enfants nourris", '', '', 'Observations'];
+                ws.getRow(12).values = ['', '', '', '', '', '', '', 'Garçons', 'Filles', 'Total', 'Garçons', 'Filles', 'Total', ''];
+                [1, 2, 3, 4, 5, 6, 7, 14].forEach(c => ws.mergeCells(11, c, 12, c));
+                ws.mergeCells(11, 8, 11, 10);
+                ws.mergeCells(11, 11, 11, 13);
+                styleHeaderRow(ws.getRow(11));
+                styleHeaderRow(ws.getRow(12));
+
+                let row = 13;
+                const deptCommunes = state.communes.filter(c => c.departement_id === dept.id);
+                const deptStartRow = row;
+                deptCommunes.forEach(commune => {
+                    const communeSchools = state.schools.filter(s => s.commune_id === commune.id);
+                    const communeStartRow = row;
+                    communeSchools.forEach(s => {
+                        const col = collectes.find(c => c.ecole_id === s.id);
+                        const r = ws.getRow(row);
+                        r.getCell(1).value = (row === deptStartRow) ? dept.nom : '';
+                        r.getCell(2).value = (row === communeStartRow) ? commune.nom : '';
+                        r.getCell(3).value = s.nom;
+                        if (col) {
+                            r.getCell(4).value = col.ecole_ouverte ? 1 : 0;
+                            r.getCell(5).value = col.cantine_fonctionnelle ? 1 : 0;
+                            r.getCell(6).value = col.raison_non_fonctionnement || '';
+                            r.getCell(7).value = { formula: `IF(D${row}=0,0,E${row}/D${row})` };
+                            r.getCell(7).numFmt = '0%';
+                            r.getCell(8).value = col.eleves_garcons || 0;
+                            r.getCell(9).value = col.eleves_filles || 0;
+                            r.getCell(10).value = { formula: `H${row}+I${row}` };
+                            r.getCell(11).value = col.nourris_garcons || 0;
+                            r.getCell(12).value = col.nourris_filles || 0;
+                            r.getCell(13).value = { formula: `K${row}+L${row}` };
+                            r.getCell(14).value = col.observation || '';
+                        } else {
+                            r.getCell(14).value = 'Non renseigné (pas encore saisi)';
+                        }
+                        r.eachCell({ includeEmpty: true }, c => { c.border = BORDER_ALL; c.font = { size: 9 }; });
+                        row++;
+                    });
+                    const communeEndRow = row - 1;
+                    const tc = ws.getRow(row);
+                    tc.getCell(2).value = `TOTAL ${commune.nom}`;
+                    tc.getCell(4).value = { formula: `SUM(D${communeStartRow}:D${communeEndRow})` };
+                    tc.getCell(5).value = { formula: `SUM(E${communeStartRow}:E${communeEndRow})` };
+                    tc.getCell(7).value = { formula: `IF(D${row}=0,0,E${row}/D${row})` };
+                    tc.getCell(7).numFmt = '0%';
+                    tc.getCell(8).value = { formula: `SUM(H${communeStartRow}:H${communeEndRow})` };
+                    tc.getCell(9).value = { formula: `SUM(I${communeStartRow}:I${communeEndRow})` };
+                    tc.getCell(10).value = { formula: `SUM(J${communeStartRow}:J${communeEndRow})` };
+                    tc.getCell(11).value = { formula: `SUM(K${communeStartRow}:K${communeEndRow})` };
+                    tc.getCell(12).value = { formula: `SUM(L${communeStartRow}:L${communeEndRow})` };
+                    tc.getCell(13).value = { formula: `SUM(M${communeStartRow}:M${communeEndRow})` };
+                    tc.eachCell({ includeEmpty: true }, c => { c.font = { bold: true, size: 9 }; c.border = BORDER_ALL; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; });
+                    row++;
+                });
+                const deptEndRow = row - 1;
+                const td = ws.getRow(row);
+                td.getCell(1).value = `TOTAL ${dept.nom}`;
+                td.getCell(4).value = { formula: `SUM(D${deptStartRow}:D${deptEndRow})` };
+                td.getCell(5).value = { formula: `SUM(E${deptStartRow}:E${deptEndRow})` };
+                td.getCell(7).value = { formula: `IF(D${row}=0,0,E${row}/D${row})` };
+                td.getCell(7).numFmt = '0%';
+                td.getCell(8).value = { formula: `SUM(H${deptStartRow}:H${deptEndRow})` };
+                td.getCell(9).value = { formula: `SUM(I${deptStartRow}:I${deptEndRow})` };
+                td.getCell(10).value = { formula: `SUM(J${deptStartRow}:J${deptEndRow})` };
+                td.getCell(11).value = { formula: `SUM(K${deptStartRow}:K${deptEndRow})` };
+                td.getCell(12).value = { formula: `SUM(L${deptStartRow}:L${deptEndRow})` };
+                td.getCell(13).value = { formula: `SUM(M${deptStartRow}:M${deptEndRow})` };
+                td.eachCell({ includeEmpty: true }, c => { c.font = { bold: true, size: 10 }; c.border = BORDER_ALL; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } }; });
             });
 
-            XLSX.writeFile(wb, `Point_cantines_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            const buffer = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Point_de_fonctionnement_des_cantines_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            ui.banner("Fichier Excel téléchargé avec succès !");
+        },
+
+        // ================================================================
+        // VUE : MON SECTEUR (Médiateur)
+        // ================================================================
+        renderSecteurView() {
+            const camp = state.campaigns.find(c => c.id === state.activeCampaignId);
+            document.getElementById('secteurCampaignTitle').innerText = camp ? camp.nom : "Aucune campagne active";
+
+            const mySchools = this.schoolsForRole();
+            const respondedIds = new Set(state.collectes.map(c => c.ecole_id));
+            const responded = mySchools.filter(s => respondedIds.has(s.id)).length;
+            const total = mySchools.length;
+            const pct = total > 0 ? Math.round(responded / total * 100) : 0;
+
+            document.getElementById('secteurProgressLabel').innerText = total > 0
+                ? `${responded} / ${total} école(s) ont transmis leurs données (${pct}%)`
+                : "Aucune commune ne vous est encore affectée — contactez l'administrateur.";
+            document.getElementById('secteurProgressBar').style.width = pct + '%';
+
+            const btn = document.getElementById('btnValiderSecteur');
+            btn.disabled = pct < 100 || total === 0;
+            btn.classList.toggle('opacity-40', btn.disabled);
+            btn.innerHTML = state.validationMediateur
+                ? '<i class="fa-solid fa-rotate mr-1"></i> Revalider mon secteur'
+                : '<i class="fa-solid fa-check-double mr-1"></i> Valider mon secteur';
+
+            const badge = document.getElementById('secteurValidationBadge');
+            badge.innerHTML = state.validationMediateur
+                ? `<div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg p-2.5"><i class="fa-solid fa-circle-check mr-1"></i> Secteur validé le ${new Date(state.validationMediateur.valide_at).toLocaleString('fr-FR')}</div>`
+                : `<div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-lg p-2.5"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Pas encore validé</div>`;
+
+            const q = (document.getElementById('filterSecteurQuery')?.value || '').trim().toLowerCase();
+            const filtered = q ? mySchools.filter(s => s.nom.toLowerCase().includes(q)) : mySchools;
+            const tbody = document.getElementById('secteurTableBody');
+            if (filtered.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Aucune école.</td></tr>`; return; }
+            tbody.innerHTML = filtered.map(s => {
+                const commune = state.communes.find(c => c.id === s.commune_id);
+                const col = state.collectes.find(c => c.ecole_id === s.id);
+                const pres = col ? (col.eleves_garcons || 0) + (col.eleves_filles || 0) : null;
+                const fed = col ? (col.nourris_garcons || 0) + (col.nourris_filles || 0) : null;
+                return `<tr>
+                    <td class="py-2.5 px-3">${commune ? commune.nom : '-'}</td>
+                    <td class="py-2.5 px-3 font-semibold">${s.nom}</td>
+                    <td class="py-2.5 px-3 text-center">${col ? '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">Transmis</span>' : '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">En attente</span>'}</td>
+                    <td class="py-2.5 px-3 text-right font-bold">${pres === null ? '-' : pres}</td>
+                    <td class="py-2.5 px-3 text-right font-bold text-emerald-700">${fed === null ? '-' : fed}</td>
+                </tr>`;
+            }).join('');
+        },
+
+        async validerSecteur() {
+            const mySchools = this.schoolsForRole();
+            const respondedIds = new Set(state.collectes.map(c => c.ecole_id));
+            const total = mySchools.length;
+            const responded = mySchools.filter(s => respondedIds.has(s.id)).length;
+            if (total === 0) { ui.banner("Aucune commune ne vous est affectée.", "error"); return; }
+            if (responded < total) { ui.banner("Toutes les écoles de votre secteur doivent avoir transmis leurs données avant validation.", "error"); return; }
+            if (!state.activeCampaignId) { ui.banner("Aucune campagne active.", "error"); return; }
+
+            const { data, error } = await sb.from('validations_mediateur')
+                .upsert({ campagne_id: state.activeCampaignId, mediateur_id: state.profile.id, valide_par: state.profile.id, valide_at: new Date().toISOString() }, { onConflict: 'campagne_id,mediateur_id' })
+                .select().maybeSingle();
+            if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+            state.validationMediateur = data;
+            ui.banner("Secteur validé avec succès !");
+            this.renderSecteurView();
+        },
+
+        // Génère le fichier Excel (format officiel ANAN) limité aux écoles du
+        // secteur du Médiateur connecté — à envoyer à son Superviseur.
+        async runExcelExportMediateur() {
+            ui.banner("Génération du fichier Excel en cours…");
+            const mySchools = this.schoolsForRole();
+            if (!mySchools.length) { ui.banner("Aucune commune ne vous est affectée.", "error"); return; }
+            const mySchoolIds = new Set(mySchools.map(s => s.id));
+            const collectes = state.collectes.filter(c => mySchoolIds.has(c.ecole_id));
+            const sectorLabel = `${state.profile.prenom} ${state.profile.nom}`;
+
+            // Reproduit EXACTEMENT le modèle officiel ANAN (Synthèse + une feuille
+            // par département), restreint aux seules écoles du secteur du Médiateur.
+            const { wb, addHeaderBlock, styleHeaderRow, BORDER_ALL } = this._excelBase();
+            this._buildPointCantineMultiSheet(wb, {
+                schools: mySchools,
+                collectes,
+                addHeaderBlock, styleHeaderRow, BORDER_ALL,
+                synthTitle: `Point de fonctionnement des cantines — Secteur de ${sectorLabel}`,
+                synthTotalLabel: 'TOTAL SECTEUR'
+            });
+
+            await this._downloadWorkbook(wb, `Secteur_${sectorLabel.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        },
+
+        // ================================================================
+        // VUE : MA SUPERVISION (Superviseur)
+        // ================================================================
+        renderSupervisionView() {
+            const camp = state.campaigns.find(c => c.id === state.activeCampaignId);
+            document.getElementById('supervisionCampaignTitle').innerText = camp ? camp.nom : "Aucune campagne active";
+
+            const rows = state.mesMediateurs.map(m => {
+                const communeIds = new Set(state.mediateurCommunes.filter(mc => mc.mediateur_id === m.id).map(mc => mc.commune_id));
+                const schools = state.schools.filter(s => communeIds.has(s.commune_id));
+                const schoolIds = new Set(schools.map(s => s.id));
+                const responded = state.collectes.filter(c => schoolIds.has(c.ecole_id)).length;
+                const validation = state.validationsMediateurMap[m.id] || null;
+                return { m, nbCommunes: communeIds.size, nbSchools: schools.length, responded, validation };
+            });
+
+            const totalSchools = rows.reduce((s, r) => s + r.nbSchools, 0);
+            const totalResponded = rows.reduce((s, r) => s + r.responded, 0);
+            const totalValidated = rows.filter(r => r.validation).length;
+            document.getElementById('supervisionKpis').innerHTML = [
+                ['Médiateurs', state.mesMediateurs.length, 'fa-sitemap text-slate-400'],
+                ['Écoles Attendues', totalSchools, 'fa-school text-slate-400'],
+                ['Taux de Collecte', totalSchools ? Math.round(totalResponded / totalSchools * 100) + '%' : '0%', 'fa-chart-line text-primary-500'],
+                ['Médiateurs Validés', `${totalValidated} / ${state.mesMediateurs.length}`, 'fa-check-double text-emerald-500']
+            ].map(([label, val, icon]) => `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-500 text-xs font-medium mb-2"><span>${label}</span><i class="fa-solid ${icon}"></i></div>
+                    <div class="text-2xl font-black text-slate-900">${val}</div>
+                </div>`).join('');
+
+            const allValidated = state.mesMediateurs.length > 0 && totalValidated === state.mesMediateurs.length;
+            const btn = document.getElementById('btnValiderSupervision');
+            btn.disabled = !allValidated;
+            btn.classList.toggle('opacity-40', btn.disabled);
+            btn.innerHTML = state.validationSuperviseur
+                ? '<i class="fa-solid fa-rotate mr-1"></i> Revalider ma supervision'
+                : '<i class="fa-solid fa-check-double mr-1"></i> Valider ma supervision';
+
+            const badge = document.getElementById('supervisionValidationBadge');
+            badge.innerHTML = state.validationSuperviseur
+                ? `<div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg p-2.5"><i class="fa-solid fa-circle-check mr-1"></i> Supervision validée le ${new Date(state.validationSuperviseur.valide_at).toLocaleString('fr-FR')}</div>`
+                : `<div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-lg p-2.5"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Pas encore validée${allValidated ? '' : ' — en attente de tous vos Médiateurs'}</div>`;
+
+            const tbody = document.getElementById('supervisionMediateursBody');
+            if (!rows.length) { tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Aucun médiateur ne vous est affecté.</td></tr>`; return; }
+            tbody.innerHTML = rows.map(({ m, nbCommunes, nbSchools, responded, validation }) => `
+                <tr>
+                    <td class="py-2.5 px-3 font-bold">${m.prenom} ${m.nom}</td>
+                    <td class="py-2.5 px-3 text-center">${nbCommunes}</td>
+                    <td class="py-2.5 px-3 text-center">${nbSchools}</td>
+                    <td class="py-2.5 px-3 text-center">${responded} / ${nbSchools}</td>
+                    <td class="py-2.5 px-3 text-center">${validation
+                        ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">Validé le ${new Date(validation.valide_at).toLocaleDateString('fr-FR')}</span>`
+                        : `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold text-[10px]">En attente</span>`}</td>
+                </tr>`).join('');
+        },
+
+        async validerSupervision() {
+            const totalValidated = state.mesMediateurs.filter(m => state.validationsMediateurMap[m.id]).length;
+            if (state.mesMediateurs.length === 0) { ui.banner("Aucun médiateur ne vous est affecté.", "error"); return; }
+            if (totalValidated < state.mesMediateurs.length) { ui.banner("Tous vos médiateurs doivent avoir validé leur secteur avant votre validation.", "error"); return; }
+            if (!state.activeCampaignId) { ui.banner("Aucune campagne active.", "error"); return; }
+
+            const { data, error } = await sb.from('validations_superviseur')
+                .upsert({ campagne_id: state.activeCampaignId, superviseur_id: state.profile.id, valide_par: state.profile.id, valide_at: new Date().toISOString() }, { onConflict: 'campagne_id,superviseur_id' })
+                .select().maybeSingle();
+            if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+            state.validationSuperviseur = data;
+            ui.banner("Supervision validée avec succès !");
+            this.renderSupervisionView();
+        },
+
+        // Génère le point complet (format officiel ANAN, modèle "Synthèse + une
+        // feuille par département") consolidant toutes les écoles de tous les
+        // Médiateurs du Superviseur connecté — soit exactement le même fichier que
+        // l'export national, mais limité au périmètre de sa supervision — suivi
+        // d'une feuille bonus "Par Médiateur" qui ventile les mêmes totaux par
+        // Médiateur, pour la traçabilité de la compilation.
+        async runExcelExportSuperviseur() {
+            ui.banner("Génération du fichier Excel en cours…");
+            if (!state.mesMediateurs.length) { ui.banner("Aucun médiateur ne vous est affecté.", "error"); return; }
+            const superviseurLabel = `${state.profile.prenom} ${state.profile.nom}`;
+
+            const schoolsOfMediateur = (m) => {
+                const communeIds = new Set(state.mediateurCommunes.filter(mc => mc.mediateur_id === m.id).map(mc => mc.commune_id));
+                return state.schools.filter(s => communeIds.has(s.commune_id));
+            };
+            const allSchoolIds = new Set();
+            state.mesMediateurs.forEach(m => schoolsOfMediateur(m).forEach(s => allSchoolIds.add(s.id)));
+            const allSchools = state.schools.filter(s => allSchoolIds.has(s.id));
+            if (!allSchools.length) { ui.banner("Aucune école ne dépend de vos médiateurs.", "error"); return; }
+            const collectes = state.collectes.filter(c => allSchoolIds.has(c.ecole_id));
+
+            const { wb, addHeaderBlock, styleHeaderRow, BORDER_ALL } = this._excelBase();
+            this._buildPointCantineMultiSheet(wb, {
+                schools: allSchools,
+                collectes,
+                addHeaderBlock, styleHeaderRow, BORDER_ALL,
+                synthTitle: `Point de fonctionnement des cantines — Supervision de ${superviseurLabel}`,
+                synthTotalLabel: 'TOTAL SUPERVISION'
+            });
+
+            // ============ FEUILLE BONUS : PAR MÉDIATEUR ============
+            const wsMed = wb.addWorksheet('Par Médiateur', { views: [{ state: 'frozen', ySplit: 12 }] });
+            wsMed.columns = [{ width: 22 }, { width: 11 }, { width: 13 }, { width: 13 }, { width: 10 }, { width: 9 }, { width: 9 }, { width: 9 }, { width: 9 }, { width: 9 }, { width: 9 }];
+            addHeaderBlock(wsMed, `Point de fonctionnement des cantines — Supervision de ${superviseurLabel} (par Médiateur)`);
+            wsMed.getRow(11).values = ['Médiateur', "Nombre d'écoles", 'Ecole ouverte (Oui: 1; Non: 0)', 'Fonctionnement cantine (Oui: 1; Non: 0)', 'Taux de fonctionnement', 'Effectif des élèves présents à cette date', '', '', "Effectif d'enfants nourris", '', ''];
+            wsMed.getRow(12).values = ['', '', '', '', '', 'Garçons', 'Filles', 'Total', 'Garçons', 'Filles', 'Total'];
+            [1, 2, 3, 4, 5].forEach(c => wsMed.mergeCells(11, c, 12, c));
+            wsMed.mergeCells(11, 6, 11, 8);
+            wsMed.mergeCells(11, 9, 11, 11);
+            styleHeaderRow(wsMed.getRow(11)); styleHeaderRow(wsMed.getRow(12));
+
+            let synthRow = 13;
+            const synthStartRow = synthRow;
+            state.mesMediateurs.forEach(m => {
+                const schools = schoolsOfMediateur(m);
+                const schoolIds = new Set(schools.map(s => s.id));
+                const col = state.collectes.filter(c => schoolIds.has(c.ecole_id));
+                const open = col.filter(c => c.ecole_ouverte).length;
+                const func = col.filter(c => c.ecole_ouverte && c.cantine_fonctionnelle).length;
+                let pg = 0, pf = 0, fg = 0, ff = 0;
+                col.forEach(c => { pg += c.eleves_garcons || 0; pf += c.eleves_filles || 0; fg += c.nourris_garcons || 0; ff += c.nourris_filles || 0; });
+                const r = wsMed.getRow(synthRow);
+                r.getCell(1).value = `${m.prenom} ${m.nom}`;
+                r.getCell(2).value = schools.length; r.getCell(3).value = open; r.getCell(4).value = func;
+                r.getCell(5).value = { formula: `IF(C${synthRow}=0,0,D${synthRow}/C${synthRow})` }; r.getCell(5).numFmt = '0%';
+                r.getCell(6).value = pg; r.getCell(7).value = pf; r.getCell(8).value = { formula: `F${synthRow}+G${synthRow}` };
+                r.getCell(9).value = fg; r.getCell(10).value = ff; r.getCell(11).value = { formula: `I${synthRow}+J${synthRow}` };
+                r.eachCell({ includeEmpty: true }, c => { c.border = BORDER_ALL; c.font = { size: 9 }; });
+                synthRow++;
+            });
+            const synthEndRow = synthRow - 1;
+            const trow = wsMed.getRow(synthRow);
+            trow.getCell(1).value = 'TOTAL';
+            trow.getCell(2).value = { formula: `SUM(B${synthStartRow}:B${synthEndRow})` };
+            trow.getCell(3).value = { formula: `SUM(C${synthStartRow}:C${synthEndRow})` };
+            trow.getCell(4).value = { formula: `SUM(D${synthStartRow}:D${synthEndRow})` };
+            trow.getCell(5).value = { formula: `IF(C${synthRow}=0,0,D${synthRow}/C${synthRow})` }; trow.getCell(5).numFmt = '0%';
+            trow.getCell(6).value = { formula: `SUM(F${synthStartRow}:F${synthEndRow})` };
+            trow.getCell(7).value = { formula: `SUM(G${synthStartRow}:G${synthEndRow})` };
+            trow.getCell(8).value = { formula: `SUM(H${synthStartRow}:H${synthEndRow})` };
+            trow.getCell(9).value = { formula: `SUM(I${synthStartRow}:I${synthEndRow})` };
+            trow.getCell(10).value = { formula: `SUM(J${synthStartRow}:J${synthEndRow})` };
+            trow.getCell(11).value = { formula: `SUM(K${synthStartRow}:K${synthEndRow})` };
+            trow.eachCell({ includeEmpty: true }, c => { c.font = { bold: true, size: 10 }; c.border = BORDER_ALL; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } }; });
+
+            await this._downloadWorkbook(wb, `Supervision_${superviseurLabel.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        },
+
+        // Construit, sur un classeur déjà ouvert (via _excelBase()), EXACTEMENT le
+        // même modèle que l'export national (runExcelExport) — une feuille
+        // "Synthèse" (une ligne par commune, regroupée par département, avec
+        // sous-totaux département + total général) suivie d'une feuille par
+        // département (une ligne par école, repère commune en fusion visuelle,
+        // sous-total commune, sous-total département) — mais restreint au
+        // périmètre (liste d'écoles) passé en paramètre. Utilisé par
+        // runExcelExportMediateur() et runExcelExportSuperviseur() pour que leurs
+        // fichiers soient rigoureusement conformes au modèle officiel ANAN,
+        // simplement limités à leur secteur/supervision plutôt qu'au national.
+        _buildPointCantineMultiSheet(wb, { schools, collectes, addHeaderBlock, styleHeaderRow, BORDER_ALL, synthTitle, synthTotalLabel }) {
+            const communeIds = new Set(schools.map(s => s.commune_id));
+            const communes = state.communes.filter(c => communeIds.has(c.id));
+            const deptIds = new Set(communes.map(c => c.departement_id));
+            const departments = state.departments.filter(d => deptIds.has(d.id));
+            const schoolsByCommune = (communeId) => schools.filter(s => s.commune_id === communeId);
+            const colOf = (schoolId) => collectes.find(c => c.ecole_id === schoolId);
+
+            // ============ FEUILLE : SYNTHÈSE (par commune) ============
+            const wsSynth = wb.addWorksheet('Synthèse', { views: [{ state: 'frozen', ySplit: 12 }] });
+            wsSynth.columns = [
+                { width: 16 }, { width: 16 }, { width: 11 }, { width: 13 }, { width: 13 },
+                { width: 20 }, { width: 10 }, { width: 9 }, { width: 9 }, { width: 9 },
+                { width: 9 }, { width: 9 }, { width: 9 }
+            ];
+            addHeaderBlock(wsSynth, synthTitle);
+            wsSynth.getRow(11).values = ['Département', 'Commune', "Nombre d'écoles bénéficiaires", 'Ecole ouverte (Oui: 1; Non: 0)', 'Fonctionnement cantine (Oui: 1; Non: 0)', 'Raisons de non fonctionnement', 'Taux de fonctionnement', 'Effectif des élèves présents à cette date', '', '', "Effectif d'enfants nourris", '', ''];
+            wsSynth.getRow(12).values = ['', '', '', '', '', '', '', 'Garçons', 'Filles', 'Total', 'Garçons', 'Filles', 'Total'];
+            [1, 2, 3, 4, 5, 6, 7].forEach(c => wsSynth.mergeCells(11, c, 12, c));
+            wsSynth.mergeCells(11, 8, 11, 10);
+            wsSynth.mergeCells(11, 11, 11, 13);
+            styleHeaderRow(wsSynth.getRow(11));
+            styleHeaderRow(wsSynth.getRow(12));
+
+            let synthRow = 13;
+            let grandSchools = 0, grandOpen = 0, grandFunc = 0, grandPG = 0, grandPF = 0, grandFG = 0, grandFF = 0;
+            departments.forEach(dept => {
+                const deptCommunes = communes.filter(c => c.departement_id === dept.id);
+                const deptStartRow = synthRow;
+                deptCommunes.forEach(commune => {
+                    const communeSchools = schoolsByCommune(commune.id);
+                    const schoolIds = communeSchools.map(s => s.id);
+                    const communeCol = collectes.filter(c => schoolIds.includes(c.ecole_id));
+                    const open = communeCol.filter(c => c.ecole_ouverte).length;
+                    const func = communeCol.filter(c => c.ecole_ouverte && c.cantine_fonctionnelle).length;
+                    let pg = 0, pf = 0, fg = 0, ff = 0;
+                    communeCol.forEach(c => { pg += c.eleves_garcons || 0; pf += c.eleves_filles || 0; fg += c.nourris_garcons || 0; ff += c.nourris_filles || 0; });
+                    const r = wsSynth.getRow(synthRow);
+                    r.getCell(1).value = (synthRow === deptStartRow) ? dept.nom : '';
+                    r.getCell(2).value = commune.nom;
+                    r.getCell(3).value = communeSchools.length;
+                    r.getCell(4).value = open;
+                    r.getCell(5).value = func;
+                    r.getCell(7).value = { formula: `IF(D${synthRow}=0,0,E${synthRow}/D${synthRow})` };
+                    r.getCell(7).numFmt = '0%';
+                    r.getCell(8).value = pg; r.getCell(9).value = pf;
+                    r.getCell(10).value = { formula: `H${synthRow}+I${synthRow}` };
+                    r.getCell(11).value = fg; r.getCell(12).value = ff;
+                    r.getCell(13).value = { formula: `K${synthRow}+L${synthRow}` };
+                    r.eachCell({ includeEmpty: true }, c => { c.border = BORDER_ALL; c.font = { size: 9 }; });
+                    grandSchools += communeSchools.length; grandOpen += open; grandFunc += func;
+                    grandPG += pg; grandPF += pf; grandFG += fg; grandFF += ff;
+                    synthRow++;
+                });
+                const deptEndRow = synthRow - 1;
+                const tRow = wsSynth.getRow(synthRow);
+                tRow.getCell(1).value = `TOTAL ${dept.nom}`;
+                tRow.getCell(3).value = { formula: `SUM(C${deptStartRow}:C${deptEndRow})` };
+                tRow.getCell(4).value = { formula: `SUM(D${deptStartRow}:D${deptEndRow})` };
+                tRow.getCell(5).value = { formula: `SUM(E${deptStartRow}:E${deptEndRow})` };
+                tRow.getCell(7).value = { formula: `IF(D${synthRow}=0,0,E${synthRow}/D${synthRow})` };
+                tRow.getCell(7).numFmt = '0%';
+                tRow.getCell(8).value = { formula: `SUM(H${deptStartRow}:H${deptEndRow})` };
+                tRow.getCell(9).value = { formula: `SUM(I${deptStartRow}:I${deptEndRow})` };
+                tRow.getCell(10).value = { formula: `SUM(J${deptStartRow}:J${deptEndRow})` };
+                tRow.getCell(11).value = { formula: `SUM(K${deptStartRow}:K${deptEndRow})` };
+                tRow.getCell(12).value = { formula: `SUM(L${deptStartRow}:L${deptEndRow})` };
+                tRow.getCell(13).value = { formula: `SUM(M${deptStartRow}:M${deptEndRow})` };
+                tRow.eachCell({ includeEmpty: true }, c => { c.font = { bold: true, size: 9 }; c.border = BORDER_ALL; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; });
+                synthRow++;
+            });
+            const grRow = wsSynth.getRow(synthRow);
+            grRow.getCell(1).value = synthTotalLabel;
+            grRow.getCell(3).value = grandSchools; grRow.getCell(4).value = grandOpen; grRow.getCell(5).value = grandFunc;
+            grRow.getCell(7).value = grandOpen > 0 ? grandFunc / grandOpen : 0; grRow.getCell(7).numFmt = '0%';
+            grRow.getCell(8).value = grandPG; grRow.getCell(9).value = grandPF; grRow.getCell(10).value = grandPG + grandPF;
+            grRow.getCell(11).value = grandFG; grRow.getCell(12).value = grandFF; grRow.getCell(13).value = grandFG + grandFF;
+            grRow.eachCell({ includeEmpty: true }, c => { c.font = { bold: true, size: 10 }; c.border = BORDER_ALL; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } }; });
+
+            // ============ UNE FEUILLE PAR DÉPARTEMENT (détail école par école) ============
+            departments.forEach(dept => {
+                const ws = wb.addWorksheet(dept.nom.substring(0, 31), { views: [{ state: 'frozen', ySplit: 12 }] });
+                ws.columns = [
+                    { width: 14 }, { width: 16 }, { width: 28 }, { width: 13 }, { width: 13 },
+                    { width: 20 }, { width: 10 }, { width: 9 }, { width: 9 }, { width: 9 },
+                    { width: 9 }, { width: 9 }, { width: 9 }, { width: 22 }
+                ];
+                addHeaderBlock(ws, `Point de fonctionnement des cantines — ${dept.nom}`);
+                ws.getRow(11).values = ['Département', 'Communes', 'Ecoles', 'Ecole ouverte (Oui: 1; Non: 0)', 'Fonctionnement cantine (Oui: 1; Non: 0)', 'Raisons de non fonctionnement', 'Taux de fonctionnement', 'Effectif des élèves présents à cette date', '', '', "Effectif d'enfants nourris", '', '', 'Observations'];
+                ws.getRow(12).values = ['', '', '', '', '', '', '', 'Garçons', 'Filles', 'Total', 'Garçons', 'Filles', 'Total', ''];
+                [1, 2, 3, 4, 5, 6, 7, 14].forEach(c => ws.mergeCells(11, c, 12, c));
+                ws.mergeCells(11, 8, 11, 10);
+                ws.mergeCells(11, 11, 11, 13);
+                styleHeaderRow(ws.getRow(11));
+                styleHeaderRow(ws.getRow(12));
+
+                let row = 13;
+                const deptCommunes = communes.filter(c => c.departement_id === dept.id);
+                const deptStartRow = row;
+                deptCommunes.forEach(commune => {
+                    const communeSchools = schoolsByCommune(commune.id);
+                    const communeStartRow = row;
+                    communeSchools.forEach(s => {
+                        const col = colOf(s.id);
+                        const r = ws.getRow(row);
+                        r.getCell(1).value = (row === deptStartRow) ? dept.nom : '';
+                        r.getCell(2).value = (row === communeStartRow) ? commune.nom : '';
+                        r.getCell(3).value = s.nom;
+                        if (col) {
+                            r.getCell(4).value = col.ecole_ouverte ? 1 : 0;
+                            r.getCell(5).value = col.cantine_fonctionnelle ? 1 : 0;
+                            r.getCell(6).value = col.raison_non_fonctionnement || '';
+                            r.getCell(7).value = { formula: `IF(D${row}=0,0,E${row}/D${row})` };
+                            r.getCell(7).numFmt = '0%';
+                            r.getCell(8).value = col.eleves_garcons || 0;
+                            r.getCell(9).value = col.eleves_filles || 0;
+                            r.getCell(10).value = { formula: `H${row}+I${row}` };
+                            r.getCell(11).value = col.nourris_garcons || 0;
+                            r.getCell(12).value = col.nourris_filles || 0;
+                            r.getCell(13).value = { formula: `K${row}+L${row}` };
+                            r.getCell(14).value = col.observation || '';
+                        } else {
+                            r.getCell(14).value = 'Non renseigné (pas encore saisi)';
+                        }
+                        r.eachCell({ includeEmpty: true }, c => { c.border = BORDER_ALL; c.font = { size: 9 }; });
+                        row++;
+                    });
+                    const communeEndRow = row - 1;
+                    const tc = ws.getRow(row);
+                    tc.getCell(2).value = `TOTAL ${commune.nom}`;
+                    tc.getCell(4).value = { formula: `SUM(D${communeStartRow}:D${communeEndRow})` };
+                    tc.getCell(5).value = { formula: `SUM(E${communeStartRow}:E${communeEndRow})` };
+                    tc.getCell(7).value = { formula: `IF(D${row}=0,0,E${row}/D${row})` };
+                    tc.getCell(7).numFmt = '0%';
+                    tc.getCell(8).value = { formula: `SUM(H${communeStartRow}:H${communeEndRow})` };
+                    tc.getCell(9).value = { formula: `SUM(I${communeStartRow}:I${communeEndRow})` };
+                    tc.getCell(10).value = { formula: `SUM(J${communeStartRow}:J${communeEndRow})` };
+                    tc.getCell(11).value = { formula: `SUM(K${communeStartRow}:K${communeEndRow})` };
+                    tc.getCell(12).value = { formula: `SUM(L${communeStartRow}:L${communeEndRow})` };
+                    tc.getCell(13).value = { formula: `SUM(M${communeStartRow}:M${communeEndRow})` };
+                    tc.eachCell({ includeEmpty: true }, c => { c.font = { bold: true, size: 9 }; c.border = BORDER_ALL; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; });
+                    row++;
+                });
+                const deptEndRow = row - 1;
+                const td = ws.getRow(row);
+                td.getCell(1).value = `TOTAL ${dept.nom}`;
+                td.getCell(4).value = { formula: `SUM(D${deptStartRow}:D${deptEndRow})` };
+                td.getCell(5).value = { formula: `SUM(E${deptStartRow}:E${deptEndRow})` };
+                td.getCell(7).value = { formula: `IF(D${row}=0,0,E${row}/D${row})` };
+                td.getCell(7).numFmt = '0%';
+                td.getCell(8).value = { formula: `SUM(H${deptStartRow}:H${deptEndRow})` };
+                td.getCell(9).value = { formula: `SUM(I${deptStartRow}:I${deptEndRow})` };
+                td.getCell(10).value = { formula: `SUM(J${deptStartRow}:J${deptEndRow})` };
+                td.getCell(11).value = { formula: `SUM(K${deptStartRow}:K${deptEndRow})` };
+                td.getCell(12).value = { formula: `SUM(L${deptStartRow}:L${deptEndRow})` };
+                td.getCell(13).value = { formula: `SUM(M${deptStartRow}:M${deptEndRow})` };
+                td.eachCell({ includeEmpty: true }, c => { c.font = { bold: true, size: 10 }; c.border = BORDER_ALL; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } }; });
+            });
+        },
+
+        // Base commune (logo, styles, en-tête) partagée par les 3 exports Excel
+        // (national, secteur Médiateur, supervision). Voir runExcelExport() pour
+        // le détail des choix de mise en page (reproduit le modèle ANAN).
+        _excelBase() {
+            const campaign = state.campaigns.find(c => c.id === state.activeCampaignId);
+            const dateLabel = (campaign && campaign.date_campagne)
+                ? new Date(campaign.date_campagne).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+                : new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+            const wb = new ExcelJS.Workbook();
+            wb.creator = 'CANTINE DATA';
+            wb.created = new Date();
+            const logoId = wb.addImage({ base64: ANAN_LOGO_BASE64, extension: 'png' });
+            const BORDER_ALL = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } }, left: { style: 'thin', color: { argb: 'FFCBD5E1' } }, right: { style: 'thin', color: { argb: 'FFCBD5E1' } } };
+            function styleHeaderRow(row) {
+                row.eachCell(cell => {
+                    cell.font = { bold: true, size: 9 };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+                    cell.border = BORDER_ALL;
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                });
+            }
+            function addHeaderBlock(ws, title) {
+                ws.addImage(logoId, { tl: { col: 0.1, row: 0.1 }, ext: { width: 210, height: 110 } });
+                const titleRow = ws.getRow(7);
+                titleRow.getCell(2).value = title;
+                titleRow.getCell(2).font = { bold: true, size: 13 };
+                const dateRow = ws.getRow(9);
+                dateRow.getCell(2).value = `Date : ${dateLabel}`;
+                dateRow.getCell(2).font = { bold: true, size: 11 };
+                for (let r = 1; r <= 6; r++) ws.getRow(r).height = 15;
+            }
+            return { wb, logoId, dateLabel, BORDER_ALL, styleHeaderRow, addHeaderBlock };
+        },
+
+        async _downloadWorkbook(wb, filename) {
+            const buffer = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
             ui.banner("Fichier Excel téléchargé avec succès !");
         }
     };
@@ -1385,7 +2269,17 @@
 
         let client;
         try {
-            client = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+            client = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
+                auth: {
+                    // Garde la session active dans le navigateur (localStorage) et
+                    // rafraîchit automatiquement le jeton tant que l'utilisateur ne
+                    // se déconnecte pas explicitement — évite de ressaisir son mot
+                    // de passe à chaque ouverture de l'app.
+                    persistSession: true,
+                    autoRefreshToken: true,
+                    detectSessionInUrl: true
+                }
+            });
         } catch (err) {
             resolved = true;
             clearTimeout(connectionTimeout);
