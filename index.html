@@ -223,12 +223,20 @@
             <!-- ÉTAPE 2B : SECTEUR (Médiateur) -->
             <div id="obStep2Mediateur" class="hidden space-y-3">
                 <h2 class="font-bold text-sm text-slate-900">2. Votre secteur d'intervention</h2>
-                <p class="text-[11px] text-slate-500">Ajoutez une ou plusieurs communes dont vous consoliderez les données.</p>
+                <p class="text-[11px] text-slate-500">Pour chaque commune, précisez si vous la couvrez entièrement ou seulement certaines écoles (cas d'une commune partagée entre plusieurs médiateurs).</p>
                 <div class="grid grid-cols-2 gap-2">
                     <select id="obMedDept" onchange="app.onboardingPopulateCommunesForMediateur()" class="w-full border rounded-lg p-2.5 text-sm"></select>
-                    <select id="obMedCommune" class="w-full border rounded-lg p-2.5 text-sm"></select>
+                    <select id="obMedCommune" onchange="app.onboardingResetEcolesPrecisesPanel()" class="w-full border rounded-lg p-2.5 text-sm"></select>
                 </div>
-                <button type="button" onclick="app.onboardingAddCommuneMediateur()" class="text-xs font-bold text-primary-600 hover:text-primary-800"><i class="fa-solid fa-plus mr-1"></i>Ajouter cette commune</button>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" onclick="app.onboardingAddCommuneMediateur()" class="text-xs font-bold text-primary-600 hover:text-primary-800"><i class="fa-solid fa-plus mr-1"></i>Toute cette commune</button>
+                    <button type="button" onclick="app.onboardingToggleEcolesPrecises()" id="obToggleEcolesPrecisesBtn" class="text-xs font-bold text-primary-600 hover:text-primary-800"><i class="fa-solid fa-list-check mr-1"></i>Choisir des écoles précises</button>
+                </div>
+                <div id="obMedEcolesPrecisesPanel" class="hidden space-y-2 bg-slate-50 rounded-xl p-3">
+                    <p class="text-[11px] text-slate-500">Cochez les écoles de cette commune qui sont sous votre responsabilité.</p>
+                    <div id="obMedEcolesPrecisesList" class="max-h-48 overflow-y-auto space-y-1 text-sm"></div>
+                    <button type="button" onclick="app.onboardingAddEcolesPrecises()" class="text-xs font-bold bg-primary-600 text-white px-3 py-1.5 rounded-lg"><i class="fa-solid fa-plus mr-1"></i>Ajouter la sélection</button>
+                </div>
                 <div id="obMedCommunesList" class="flex flex-wrap gap-1.5"></div>
 
                 <div class="pt-2">
@@ -853,7 +861,8 @@
         campaigns: [],
         activeCampaignId: null,
         collectes: [],
-        mediateurCommunes: [],   // tous les rattachements Médiateur->Commune visibles pour l'utilisateur courant (scopé par RLS)
+        mediateurCommunes: [],   // tous les rattachements Médiateur->Commune ENTIÈRE visibles pour l'utilisateur courant (scopé par RLS)
+        mediateurEcoles: [],     // tous les rattachements Médiateur->École PRÉCISE visibles (couverture partielle d'une commune)
         mesMediateurs: [],       // si Superviseur : les profils Médiateur qui lui sont rattachés
         validationMediateur: null,     // si Médiateur : sa ligne de validation pour la campagne active (ou null)
         validationsMediateurMap: {},   // si Superviseur : { mediateur_id: ligne_validation }
@@ -1230,6 +1239,7 @@
             state.schools = schools;
             state.activeCampaignId = settings.data ? settings.data.active_campagne_id : null;
             state.mediateurCommunes = await fetchAllRows('mediateur_communes');
+            state.mediateurEcoles = await fetchAllRows('mediateur_ecoles');
             if (state.profile.role === 'SUPERVISEUR') {
                 state.mesMediateurs = await fetchAllRows('profils', q => q.eq('role', 'MEDIATEUR').eq('superviseur_id', state.profile.id));
             }
@@ -1360,16 +1370,25 @@
         schoolsForRole() {
             const role = state.profile.role;
             if (role === 'ADMIN' || role === 'DIRECTEUR') return state.schools;
-            if (role === 'MEDIATEUR') {
-                const myCommunes = this.mesCommunesIds();
-                return state.schools.filter(s => myCommunes.has(s.commune_id));
-            }
+            if (role === 'MEDIATEUR') return this.ecolesDuMediateur(state.profile.id);
             if (role === 'SUPERVISEUR') {
-                const myMediateurIds = new Set(state.mesMediateurs.map(m => m.id));
-                const myCommunes = new Set(state.mediateurCommunes.filter(mc => myMediateurIds.has(mc.mediateur_id)).map(mc => mc.commune_id));
-                return state.schools.filter(s => myCommunes.has(s.commune_id));
+                const ids = new Set();
+                state.mesMediateurs.forEach(m => this.ecolesDuMediateur(m.id).forEach(s => ids.add(s.id)));
+                return state.schools.filter(s => ids.has(s.id));
             }
             return state.schools.filter(s => s.id === state.profile.ecole_id);
+        },
+
+        // Périmètre RÉEL d'un Médiateur donné : écoles de ses communes ENTIÈRES
+        // (mediateur_communes) UNION ses écoles PRÉCISES (mediateur_ecoles) —
+        // nécessaire car un Médiateur ne couvre pas toujours 100% d'une commune
+        // (plusieurs Médiateurs peuvent s'y partager les écoles). Unique source
+        // de vérité : utilisé par schoolsForRole, "Ma Supervision" et les
+        // exports Excel Médiateur/Superviseur, pour ne jamais diverger.
+        ecolesDuMediateur(mediateurId) {
+            const communeIds = new Set(state.mediateurCommunes.filter(mc => mc.mediateur_id === mediateurId).map(mc => mc.commune_id));
+            const ecoleIdsPrecises = new Set(state.mediateurEcoles.filter(me => me.mediateur_id === mediateurId).map(me => me.ecole_id));
+            return state.schools.filter(s => communeIds.has(s.commune_id) || ecoleIdsPrecises.has(s.id));
         },
 
         // Les communes rattachées au Médiateur courant (lui-même, si c'est son rôle).
@@ -2385,12 +2404,13 @@
             document.getElementById('supervisionCampaignTitle').innerText = camp ? camp.nom : "Aucune campagne active";
 
             const rows = state.mesMediateurs.map(m => {
-                const communeIds = new Set(state.mediateurCommunes.filter(mc => mc.mediateur_id === m.id).map(mc => mc.commune_id));
-                const schools = state.schools.filter(s => communeIds.has(s.commune_id));
+                const nbCommunesEntieres = new Set(state.mediateurCommunes.filter(mc => mc.mediateur_id === m.id).map(mc => mc.commune_id)).size;
+                const nbEcolesPrecises = state.mediateurEcoles.filter(me => me.mediateur_id === m.id).length;
+                const schools = this.ecolesDuMediateur(m.id);
                 const schoolIds = new Set(schools.map(s => s.id));
                 const responded = state.collectes.filter(c => schoolIds.has(c.ecole_id)).length;
                 const validation = state.validationsMediateurMap[m.id] || null;
-                return { m, nbCommunes: communeIds.size, nbSchools: schools.length, responded, validation };
+                return { m, nbCommunes: nbCommunesEntieres, nbEcolesPrecises, nbSchools: schools.length, responded, validation };
             });
 
             const totalSchools = rows.reduce((s, r) => s + r.nbSchools, 0);
@@ -2422,10 +2442,10 @@
 
             const tbody = document.getElementById('supervisionMediateursBody');
             if (!rows.length) { tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Aucun médiateur ne vous est affecté.</td></tr>`; return; }
-            tbody.innerHTML = rows.map(({ m, nbCommunes, nbSchools, responded, validation }) => `
+            tbody.innerHTML = rows.map(({ m, nbCommunes, nbEcolesPrecises, nbSchools, responded, validation }) => `
                 <tr>
                     <td class="py-2.5 px-3 font-bold">${m.prenom} ${m.nom}</td>
-                    <td class="py-2.5 px-3 text-center">${nbCommunes}</td>
+                    <td class="py-2.5 px-3 text-center">${nbCommunes}${nbEcolesPrecises ? ` <span class="text-[10px] text-slate-400">(+${nbEcolesPrecises} école${nbEcolesPrecises > 1 ? 's' : ''} précise${nbEcolesPrecises > 1 ? 's' : ''})</span>` : ''}</td>
                     <td class="py-2.5 px-3 text-center">${nbSchools}</td>
                     <td class="py-2.5 px-3 text-center">${responded} / ${nbSchools}</td>
                     <td class="py-2.5 px-3 text-center">${validation
@@ -2460,10 +2480,7 @@
             if (!state.mesMediateurs.length) { ui.banner("Aucun médiateur ne vous est affecté.", "error"); return; }
             const superviseurLabel = `${state.profile.prenom} ${state.profile.nom}`;
 
-            const schoolsOfMediateur = (m) => {
-                const communeIds = new Set(state.mediateurCommunes.filter(mc => mc.mediateur_id === m.id).map(mc => mc.commune_id));
-                return state.schools.filter(s => communeIds.has(s.commune_id));
-            };
+            const schoolsOfMediateur = (m) => this.ecolesDuMediateur(m.id);
             const allSchoolIds = new Set();
             state.mesMediateurs.forEach(m => schoolsOfMediateur(m).forEach(s => allSchoolIds.add(s.id)));
             const allSchools = state.schools.filter(s => allSchoolIds.has(s.id));
@@ -3111,6 +3128,8 @@
             document.getElementById('obMedDept').innerHTML = '<option value="">— Choisir —</option>' + deptOptions;
             document.getElementById('obEcole').innerHTML = '';
             document.getElementById('obMedCommunesList').innerHTML = '';
+            document.getElementById('obMedEcolesPrecisesPanel').classList.add('hidden');
+            document.getElementById('obMedEcolesPrecisesList').innerHTML = '';
             hide('onboardingErrorBox');
 
             // Liste des superviseurs existants, pour que le Médiateur puisse
@@ -3152,25 +3171,74 @@
                 : '<option value="">Aucune commune enregistrée</option>';
         },
 
+        // Ajoute la commune sélectionnée comme "couverture entière". Bloqué si
+        // des écoles précises de cette même commune ont déjà été ajoutées, pour
+        // éviter toute ambiguïté entre les deux modes de couverture.
         onboardingAddCommuneMediateur() {
             const sel = document.getElementById('obMedCommune');
             const communeId = sel.value;
             if (!communeId) return;
-            if (state.ob.medCommunes.find(c => c.id === communeId)) { ui.banner("Cette commune est déjà ajoutée.", "error"); return; }
+            if (state.ob.medCommunes.find(c => c.type === 'commune' && c.id === communeId)) { ui.banner("Cette commune est déjà ajoutée entièrement.", "error"); return; }
+            if (state.ob.medCommunes.find(c => c.type === 'ecole' && c.communeId === communeId)) { ui.banner("Vous avez déjà ajouté des écoles précises de cette commune. Retirez-les d'abord si vous voulez couvrir la commune entière.", "error"); return; }
             const commune = state._obCommunes.find(c => c.id === communeId);
-            state.ob.medCommunes.push({ id: communeId, nom: commune.nom });
+            state.ob.medCommunes.push({ type: 'commune', id: communeId, nom: commune.nom });
             this._renderMedCommunesList();
         },
 
-        onboardingRemoveCommuneMediateur(communeId) {
-            state.ob.medCommunes = state.ob.medCommunes.filter(c => c.id !== communeId);
+        onboardingRemoveSecteurItem(type, id) {
+            state.ob.medCommunes = state.ob.medCommunes.filter(c => !(c.type === type && c.id === id));
             this._renderMedCommunesList();
         },
 
         _renderMedCommunesList() {
-            document.getElementById('obMedCommunesList').innerHTML = state.ob.medCommunes.map(c =>
-                `<span class="bg-primary-50 text-primary-700 text-[11px] font-bold px-2.5 py-1 rounded-full">${c.nom} <button type="button" onclick="app.onboardingRemoveCommuneMediateur('${c.id}')" class="ml-1 text-primary-400 hover:text-primary-800">✕</button></span>`
-            ).join('') || '<p class="text-[11px] text-slate-400">Aucune commune ajoutée pour l\'instant.</p>';
+            document.getElementById('obMedCommunesList').innerHTML = state.ob.medCommunes.map(c => c.type === 'commune'
+                ? `<span class="bg-primary-50 text-primary-700 text-[11px] font-bold px-2.5 py-1 rounded-full">${c.nom} <span class="text-primary-400 font-normal">(toute la commune)</span> <button type="button" onclick="app.onboardingRemoveSecteurItem('commune', '${c.id}')" class="ml-1 text-primary-400 hover:text-primary-800">✕</button></span>`
+                : `<span class="bg-amber-50 text-amber-700 text-[11px] font-bold px-2.5 py-1 rounded-full">${c.nom} <span class="text-amber-500 font-normal">(${c.communeNom})</span> <button type="button" onclick="app.onboardingRemoveSecteurItem('ecole', '${c.id}')" class="ml-1 text-amber-500 hover:text-amber-800">✕</button></span>`
+            ).join('') || '<p class="text-[11px] text-slate-400">Aucune commune ni école ajoutée pour l\'instant.</p>';
+        },
+
+        // Affiche/masque le panneau de sélection d'écoles précises pour la
+        // commune actuellement choisie dans #obMedCommune.
+        async onboardingToggleEcolesPrecises() {
+            const panel = document.getElementById('obMedEcolesPrecisesPanel');
+            const opening = panel.classList.contains('hidden');
+            if (!opening) { panel.classList.add('hidden'); return; }
+            const communeId = document.getElementById('obMedCommune').value;
+            if (!communeId) { ui.banner("Choisissez d'abord une commune.", "error"); return; }
+            await this._onboardingLoadEcolesPrecisesList(communeId);
+            panel.classList.remove('hidden');
+        },
+
+        // Appelé quand on change de commune : si le panneau est ouvert, on
+        // recharge sa liste d'écoles pour la nouvelle commune sélectionnée.
+        async onboardingResetEcolesPrecisesPanel() {
+            const panel = document.getElementById('obMedEcolesPrecisesPanel');
+            if (panel.classList.contains('hidden')) return;
+            const communeId = document.getElementById('obMedCommune').value;
+            if (communeId) await this._onboardingLoadEcolesPrecisesList(communeId);
+        },
+
+        async _onboardingLoadEcolesPrecisesList(communeId) {
+            const list = document.getElementById('obMedEcolesPrecisesList');
+            list.innerHTML = '<p class="text-[11px] text-slate-400">Chargement…</p>';
+            const { data: ecoles } = await sb.from('ecoles').select('id, nom, code_ecole').eq('commune_id', communeId).order('nom');
+            const dejaAjoutees = new Set(state.ob.medCommunes.filter(c => c.type === 'ecole').map(c => c.id));
+            list.innerHTML = (ecoles && ecoles.length)
+                ? ecoles.map(e => `<label class="flex items-center gap-2 py-0.5"><input type="checkbox" value="${e.id}" data-nom="${e.nom.replace(/"/g, '')}" ${dejaAjoutees.has(e.id) ? 'checked disabled' : ''} class="w-4 h-4"> ${e.nom} <span class="text-slate-400 text-[10px]">(${e.code_ecole})</span></label>`).join('')
+                : '<p class="text-[11px] text-slate-400">Aucune école enregistrée dans cette commune.</p>';
+        },
+
+        onboardingAddEcolesPrecises() {
+            const communeId = document.getElementById('obMedCommune').value;
+            const communeNom = (state._obCommunes.find(c => c.id === communeId) || {}).nom || '';
+            if (state.ob.medCommunes.find(c => c.type === 'commune' && c.id === communeId)) { ui.banner("Cette commune est déjà ajoutée entièrement — inutile d'y choisir des écoles précises.", "error"); return; }
+            const checked = Array.from(document.querySelectorAll('#obMedEcolesPrecisesList input[type="checkbox"]:checked:not(:disabled)'));
+            if (!checked.length) { ui.banner("Cochez au moins une école.", "error"); return; }
+            checked.forEach(input => {
+                state.ob.medCommunes.push({ type: 'ecole', id: input.value, nom: input.dataset.nom, communeId, communeNom });
+            });
+            document.getElementById('obMedEcolesPrecisesPanel').classList.add('hidden');
+            this._renderMedCommunesList();
         },
 
         onboardingToggleNewEcole() {
@@ -3255,7 +3323,10 @@
                     html += `<p><span class="text-slate-400">École :</span> <strong>${ecoleSel.options[ecoleSel.selectedIndex] ? ecoleSel.options[ecoleSel.selectedIndex].text : '-'}</strong></p>`;
                 }
             } else if (state.ob.role === 'MEDIATEUR') {
-                html += `<p><span class="text-slate-400">Communes :</span> <strong>${state.ob.medCommunes.map(c => c.nom).join(', ')}</strong></p>`;
+                const communesEntieres = state.ob.medCommunes.filter(c => c.type === 'commune');
+                const ecolesPrecises = state.ob.medCommunes.filter(c => c.type === 'ecole');
+                if (communesEntieres.length) html += `<p><span class="text-slate-400">Communes entières :</span> <strong>${communesEntieres.map(c => c.nom).join(', ')}</strong></p>`;
+                if (ecolesPrecises.length) html += `<p><span class="text-slate-400">Écoles précises :</span> <strong>${ecolesPrecises.map(c => c.nom).join(', ')}</strong> <span class="text-[11px] text-slate-400">(${ecolesPrecises.length} école${ecolesPrecises.length > 1 ? 's' : ''})</span></p>`;
                 const supSel = document.getElementById('obSuperviseur');
                 if (supSel.value) html += `<p><span class="text-slate-400">Superviseur :</span> <strong>${supSel.options[supSel.selectedIndex].text}</strong></p>`;
             } else if (state.ob.role === 'SUPERVISEUR') {
@@ -3301,9 +3372,18 @@
                 if (errProfil) throw errProfil;
 
                 if (state.ob.role === 'MEDIATEUR' && state.ob.medCommunes.length) {
-                    const rows = state.ob.medCommunes.map(c => ({ mediateur_id: state.profile.id, commune_id: c.id }));
-                    const { error: errCommunes } = await sb.from('mediateur_communes').upsert(rows, { onConflict: 'mediateur_id,commune_id' });
-                    if (errCommunes) throw errCommunes;
+                    const communesEntieres = state.ob.medCommunes.filter(c => c.type === 'commune');
+                    const ecolesPrecises = state.ob.medCommunes.filter(c => c.type === 'ecole');
+                    if (communesEntieres.length) {
+                        const rows = communesEntieres.map(c => ({ mediateur_id: state.profile.id, commune_id: c.id }));
+                        const { error: errCommunes } = await sb.from('mediateur_communes').upsert(rows, { onConflict: 'mediateur_id,commune_id' });
+                        if (errCommunes) throw errCommunes;
+                    }
+                    if (ecolesPrecises.length) {
+                        const rowsEcoles = ecolesPrecises.map(c => ({ mediateur_id: state.profile.id, ecole_id: c.id }));
+                        const { error: errEcoles } = await sb.from('mediateur_ecoles').upsert(rowsEcoles, { onConflict: 'mediateur_id,ecole_id' });
+                        if (errEcoles) throw errEcoles;
+                    }
                 }
 
                 ui.banner("Configuration terminée, bienvenue sur CANTINE DATA !");
