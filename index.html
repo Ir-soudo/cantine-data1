@@ -456,6 +456,142 @@
                         </button>
                     </div>
                 </section>
+
+                <!-- PHASE 1 : SAISIE QUOTIDIENNE -->
+                <section id="view-saisie-jour" class="app-view hidden space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+                        <div class="flex items-center justify-between flex-wrap gap-3">
+                            <div>
+                                <h2 class="text-xl font-black text-slate-900">Saisie Quotidienne</h2>
+                                <p class="text-xs text-slate-500" id="saisieJourEcoleLabel">-</p>
+                            </div>
+                            <input type="date" id="saisieJourDate" onchange="app.chargerSaisieJour(this.value)" class="border rounded-lg p-2 text-xs font-bold">
+                        </div>
+
+                        <div class="flex flex-wrap gap-6 text-xs font-bold">
+                            <label class="flex items-center gap-2"><input type="checkbox" id="saisieJourOuverte" onchange="app.recalculerVivresASortir()" class="w-4 h-4"> Classes ouvertes aujourd'hui</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" id="saisieJourFonctionnelle" class="w-4 h-4"> Cantine fonctionnelle aujourd'hui</label>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-xs mb-1">Raison (si non fonctionnelle)</label>
+                            <input type="text" id="saisieJourRaison" placeholder="Ex : rupture de vivres, jour férié…" class="w-full border rounded-lg p-2 text-xs">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-xs mb-1">Menu du jour</label>
+                            <input type="text" id="saisieJourMenu" placeholder="Ex : Riz au gras + haricot" class="w-full border rounded-lg p-2 text-xs">
+                        </div>
+
+                        <div>
+                            <h3 class="font-bold text-sm mb-2">Effectifs par classe</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-[11px] border-collapse">
+                                    <thead><tr class="bg-slate-50 text-slate-500 font-bold">
+                                        <td class="py-1.5 px-2">Classe</td><td class="py-1.5 px-2">Garçons inscrits</td><td class="py-1.5 px-2">Filles inscrites</td><td class="py-1.5 px-2">Garçons présents</td><td class="py-1.5 px-2">Filles présentes</td>
+                                    </tr></thead>
+                                    <tbody id="saisieJourEffectifsBody"></tbody>
+                                </table>
+                            </div>
+                            <p class="text-xs font-bold text-primary-700 mt-2" id="saisieJourEffectifTotal">0 élève(s) inscrit(s)</p>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <h3 class="font-bold text-sm mb-2">Mouvements de stock</h3>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-[11px] border-collapse">
+                                        <thead><tr class="bg-slate-50 text-slate-500 font-bold">
+                                            <td class="py-1.5 px-2">Denrée</td><td class="py-1.5 px-2">Réception ANAN</td><td class="py-1.5 px-2">Consommation</td><td class="py-1.5 px-2">Perte</td><td class="py-1.5 px-2">Raison perte</td>
+                                        </tr></thead>
+                                        <tbody id="saisieJourStockBody"></tbody>
+                                    </table>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-1">La consommation est calculée automatiquement d'après la ration officielle × effectif inscrit — elle n'est jamais saisie à la main.</p>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-sm mb-2">Vivres à sortir aujourd'hui</h3>
+                                <table class="w-full text-[11px] border-collapse">
+                                    <thead><tr class="bg-slate-50 text-slate-500 font-bold"><td class="py-1.5 px-2">Denrée</td><td class="py-1.5 px-2 text-right">Quantité</td></tr></thead>
+                                    <tbody id="vivresASortirBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-2">
+                            <button onclick="app.enregistrerSaisieJour()" class="py-3 px-8 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm">
+                                <i class="fa-solid fa-floppy-disk mr-1"></i> ENREGISTRER LA FICHE DU JOUR
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
+                        <h3 class="font-bold text-sm">Historique du mois</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-[11px] border-collapse">
+                                <thead><tr class="bg-slate-50 text-slate-500 font-bold">
+                                    <td class="py-1.5 px-2">Date</td><td class="py-1.5 px-2 text-center">Classes</td><td class="py-1.5 px-2 text-center">Cantine</td><td class="py-1.5 px-2"></td>
+                                </tr></thead>
+                                <tbody id="historiqueMoisBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PHASE 2 : MES MODÈLES -->
+                <section id="view-mes-modeles" class="app-view hidden space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                        <div class="flex items-center justify-between flex-wrap gap-3">
+                            <div>
+                                <h2 class="text-xl font-black text-slate-900">Mes Modèles Officiels</h2>
+                                <p class="text-xs text-slate-500">Importez un modèle vierge (Excel) une seule fois, calibrez ses champs, puis générez-le rempli à volonté, pour n'importe quelle école et n'importe quel mois.</p>
+                            </div>
+                            <label class="bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl cursor-pointer">
+                                <i class="fa-solid fa-upload mr-1"></i> Importer un modèle
+                                <input type="file" accept=".xlsx" class="hidden" onchange="app.handleImportModele(event)">
+                            </label>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs border-collapse">
+                                <thead><tr class="bg-slate-50 text-slate-500 font-bold"><td class="py-2 px-3">Nom du modèle</td><td class="py-2 px-3">Importé le</td><td class="py-2 px-3 text-right">Actions</td></tr></thead>
+                                <tbody id="mesModelesBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PHASE 2 : CALIBRATION D'UN MODÈLE -->
+                <section id="view-calibration" class="app-view hidden space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                        <div class="flex items-center justify-between flex-wrap gap-3">
+                            <div>
+                                <h2 class="text-xl font-black text-slate-900">Calibration du Modèle</h2>
+                                <p class="text-xs text-slate-500">Cliquez sur une cellule du modèle puis associez-lui le champ de donnée correspondant. Une fois calibré, ce modèle pourra être généré en un clic pour n'importe quelle école/mois.</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="app.annulerCalibration()" class="px-3 py-2 bg-slate-200 rounded-lg font-bold text-xs">Annuler</button>
+                                <button onclick="app.enregistrerModele()" class="px-4 py-2 bg-primary-600 text-white rounded-lg font-bold text-xs"><i class="fa-solid fa-floppy-disk mr-1"></i> Enregistrer le modèle</button>
+                            </div>
+                        </div>
+                        <div class="grid md:grid-cols-[1fr_280px] gap-4">
+                            <div>
+                                <div class="flex items-center gap-3 mb-2">
+                                    <input type="text" id="calibrationNomInput" placeholder="Nom du modèle" class="border rounded-lg p-2 text-xs font-bold flex-1">
+                                    <select id="calibrationSheetSelect" onchange="app.renderCalibrationTable(this.value)" class="border rounded-lg p-2 text-xs font-bold"></select>
+                                    <span class="text-[11px] text-slate-400 whitespace-nowrap" id="calibrationMappingCount">0 cellule(s) calibrée(s)</span>
+                                </div>
+                                <div id="calibrationTableWrap" class="overflow-auto border rounded-xl max-h-[520px]"></div>
+                            </div>
+                            <div id="calibrationCellPanel" class="hidden bg-slate-50 rounded-xl p-4 space-y-3 self-start">
+                                <p class="text-[11px] text-slate-400">Cellule sélectionnée</p>
+                                <p class="font-black text-lg" id="calibrationSelectedAddr">-</p>
+                                <p class="text-[11px] text-slate-500 truncate" id="calibrationSelectedValue">-</p>
+                                <div>
+                                    <label class="block font-bold text-xs mb-1">Champ de donnée associé</label>
+                                    <select id="calibrationFieldSelect" onchange="app.associerChampCalibration()" class="w-full border rounded-lg p-2 text-xs"></select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </main>
         </div>
     </div>
@@ -556,6 +692,27 @@
         </div>
     </div>
 
+    <!-- MODAL : GÉNÉRER UN MODÈLE REMPLI -->
+    <div id="genererModeleModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4">
+            <h3 class="font-bold text-lg">Générer le Document Rempli</h3>
+            <form onsubmit="event.preventDefault(); app.genererDepuisModele();" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold mb-1">École</label>
+                    <select id="genererEcoleSelect" class="w-full border rounded-lg p-2" required></select>
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">Mois</label>
+                    <input type="month" id="genererMois" class="w-full border rounded-lg p-2" required>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="ui.closeModal('genererModeleModal')" class="px-3 py-2 bg-slate-200 rounded-lg font-bold">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold"><i class="fa-solid fa-file-export mr-1"></i> Générer et télécharger</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
     // ================================================================
     // CANTINE DATA — Moteur applicatif connecté à Supabase
@@ -582,8 +739,214 @@
         validationSuperviseur: null,   // si Superviseur : sa propre validation pour la campagne active
         currentView: 'dashboard',
         formSchoolOpen: true,
-        formCanteenFunc: true
+        formCanteenFunc: true,
+        // ---- PHASE 1 : saisie journalière granulaire ----
+        rationReference: [],     // [{denree, libelle, grammes_par_eleve}] — référence nationale
+        saisieJourDate: null,    // date actuellement affichée dans l'écran "Saisie Quotidienne"
+        saisieJourCourante: null,// la ligne saisies_journalieres du jour affiché (ou null si pas encore saisie)
+        // ---- PHASE 2 : moteur de modèles (templates Excel) ----
+        mesModeles: [],          // modeles_export visibles pour l'utilisateur courant (scopé par RLS)
+        calibrationWb: null,     // classeur ExcelJS en cours de calibration (en mémoire, pas encore enregistré)
+        calibrationFile: null,   // ArrayBuffer du fichier original importé, à conserver tel quel
+        calibrationNom: '',
+        calibrationMapping: []   // [{cellule, champ}] en cours de construction pendant la calibration
     };
+
+    // Les 8 classes du primaire béninois, dans l'ordre de la fiche officielle.
+    const CLASSES = ['EM1', 'EM2', 'CI', 'CP', 'CE1', 'CE2', 'CM1', 'CM2'];
+    // Les 6 denrées de la "Composition de la ration journalière" (fiche PNASI).
+    const DENREE_LIBELLES = { mais: 'Maïs', riz: 'Riz', haricot: 'Haricot', pois_jaune: 'Pois jaune', huile: 'Huile', sel: 'Sel' };
+    const DENREES = Object.keys(DENREE_LIBELLES);
+
+    // Catalogue des champs disponibles pour la calibration de modèles (Phase 2) :
+    // chaque entrée = { champ: "chemin.pointe", label: "Libellé lisible", groupe: "Nom du groupe" }.
+    // Généré une fois (classes × 4 + denrées × 5), plus les champs fixes.
+    function buildFieldCatalog() {
+        const fixed = [
+            { champ: 'identification.nom_ecole', label: 'Nom de l\'école', groupe: 'Identification' },
+            { champ: 'identification.code_ecole', label: 'Code ID école', groupe: 'Identification' },
+            { champ: 'identification.commune', label: 'Commune', groupe: 'Identification' },
+            { champ: 'identification.departement', label: 'Département', groupe: 'Identification' },
+            { champ: 'identification.mois_libelle', label: 'Mois (libellé)', groupe: 'Identification' },
+            { champ: 'identification.annee_scolaire', label: 'Année scolaire', groupe: 'Identification' },
+            { champ: 'mois.jours_reels_classe', label: 'Jours réels de classe', groupe: 'Mois' },
+            { champ: 'mois.jours_reels_cantine', label: 'Jours réels de fonctionnement cantine', groupe: 'Mois' },
+            { champ: 'mois.jours_officiels_classe', label: 'Jours officiels de classe', groupe: 'Mois' },
+            { champ: 'mois.beneficiaires_garcons', label: 'Bénéficiaires atteints — Garçons (max du mois)', groupe: 'Mois' },
+            { champ: 'mois.beneficiaires_filles', label: 'Bénéficiaires atteints — Filles (max du mois)', groupe: 'Mois' },
+            { champ: 'mois.beneficiaires_total', label: 'Bénéficiaires atteints — Total (max du mois)', groupe: 'Mois' },
+            { champ: 'mois.plats_servis_garcons', label: 'Plats servis — Garçons (cumul du mois)', groupe: 'Mois' },
+            { champ: 'mois.plats_servis_filles', label: 'Plats servis — Filles (cumul du mois)', groupe: 'Mois' },
+            { champ: 'mois.plats_servis_total', label: 'Plats servis — Total (cumul du mois)', groupe: 'Mois' }
+        ];
+        const classes = [];
+        CLASSES.forEach(c => {
+            classes.push({ champ: `classes.${c}.garcons_inscrits`, label: `${c} — Garçons inscrits`, groupe: 'Effectifs par classe' });
+            classes.push({ champ: `classes.${c}.filles_inscrites`, label: `${c} — Filles inscrites`, groupe: 'Effectifs par classe' });
+            classes.push({ champ: `classes.${c}.garcons_presents`, label: `${c} — Garçons présents (cumul)`, groupe: 'Effectifs par classe' });
+            classes.push({ champ: `classes.${c}.filles_presentes`, label: `${c} — Filles présentes (cumul)`, groupe: 'Effectifs par classe' });
+        });
+        const stock = [];
+        DENREES.forEach(d => {
+            const lib = DENREE_LIBELLES[d];
+            stock.push({ champ: `stock.${d}.stock_initial`, label: `${lib} — Stock initial (kg)`, groupe: 'Gestion de stock' });
+            stock.push({ champ: `stock.${d}.entrees`, label: `${lib} — Entrées (kg)`, groupe: 'Gestion de stock' });
+            stock.push({ champ: `stock.${d}.sorties`, label: `${lib} — Sorties/consommation (kg)`, groupe: 'Gestion de stock' });
+            stock.push({ champ: `stock.${d}.pertes`, label: `${lib} — Pertes (kg)`, groupe: 'Gestion de stock' });
+            stock.push({ champ: `stock.${d}.stock_final`, label: `${lib} — Stock final (kg)`, groupe: 'Gestion de stock' });
+        });
+        return [...fixed, ...classes, ...stock];
+    }
+    const FIELD_CATALOG = buildFieldCatalog();
+
+    // Lit une valeur imbriquée via un chemin "a.b.c" (utilisé par le moteur de
+    // génération pour aller chercher chaque champ calibré dans l'objet agrégé).
+    function lireChamp(obj, chemin) {
+        return chemin.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+    }
+
+    // ----------------------------------------------------------------------
+    // PHASE 1 : LOGIQUE D'AGRÉGATION (journalier -> hebdomadaire -> mensuel)
+    // Fonctions pures (aucun accès réseau), testables indépendamment.
+    // ----------------------------------------------------------------------
+
+    function isoWeekKey(dateStr) {
+        const d = new Date(dateStr + 'T00:00:00');
+        const day = (d.getUTCDay() + 6) % 7;
+        d.setUTCDate(d.getUTCDate() - day + 3);
+        const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+        const week = 1 + Math.round(((d - firstThursday) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+        return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+    }
+
+    function sommeEffectifInscritJour(effectifsJour) {
+        return effectifsJour.reduce((acc, e) => ({
+            garcons: acc.garcons + (e.garcons_inscrits || 0),
+            filles: acc.filles + (e.filles_inscrites || 0),
+            total: acc.total + (e.garcons_inscrits || 0) + (e.filles_inscrites || 0)
+        }), { garcons: 0, filles: 0, total: 0 });
+    }
+
+    function sommeEffectifPresentJour(effectifsJour) {
+        return effectifsJour.reduce((acc, e) => ({
+            garcons: acc.garcons + (e.garcons_presents || 0),
+            filles: acc.filles + (e.filles_presentes || 0),
+            total: acc.total + (e.garcons_presents || 0) + (e.filles_presentes || 0)
+        }), { garcons: 0, filles: 0, total: 0 });
+    }
+
+    // Calcule automatiquement les quantités de vivres à sortir pour un jour
+    // donné : ration officielle (g/élève) × effectif inscrit du jour, en kg.
+    function calculerVivresASortir(effectifTotalJour, rationReference) {
+        return rationReference.map(r => ({
+            denree: r.denree,
+            libelle: r.libelle,
+            qteKg: Math.round((r.grammes_par_eleve * effectifTotalJour) / 1000 * 1000) / 1000
+        }));
+    }
+
+    // Agrège les saisies d'une école sur une semaine ISO donnée (ex: "2026-W19")
+    // -> alimente le "Cahier des menus hebdomadaires".
+    function agregerSemaine(saisies, effectifsParSaisie, ecoleId, semaineISO, rationReference) {
+        const jours = saisies
+            .filter(s => s.ecole_id === ecoleId && isoWeekKey(s.date_saisie) === semaineISO)
+            .sort((a, b) => a.date_saisie.localeCompare(b.date_saisie));
+        return jours.map(jour => {
+            const effJour = effectifsParSaisie[jour.id] || [];
+            const inscrit = sommeEffectifInscritJour(effJour);
+            return {
+                date: jour.date_saisie,
+                menu: jour.menu_du_jour || '',
+                effectifInscrit: inscrit,
+                vivresASortir: calculerVivresASortir(inscrit.total, rationReference)
+            };
+        });
+    }
+
+    // Agrège les saisies d'une école sur un mois donné ("2026-09")
+    // -> alimente la "Fiche de suivi mensuel" dans son intégralité.
+    function agregerMois(saisies, effectifsParSaisie, mouvementsParSaisie, ecoleId, moisISO, rationReference) {
+        const joursDuMois = saisies
+            .filter(s => s.ecole_id === ecoleId && s.date_saisie.slice(0, 7) === moisISO)
+            .sort((a, b) => a.date_saisie.localeCompare(b.date_saisie));
+
+        const classesAgg = {};
+        CLASSES.forEach(c => { classesAgg[c] = { garcons_inscrits: 0, filles_inscrites: 0, garcons_presents: 0, filles_presentes: 0 }; });
+        joursDuMois.forEach(jour => {
+            (effectifsParSaisie[jour.id] || []).forEach(e => {
+                if (!classesAgg[e.classe]) return;
+                // Effectifs inscrits : valeur stable (dernière connue dans le mois), pas une somme.
+                classesAgg[e.classe].garcons_inscrits = e.garcons_inscrits || 0;
+                classesAgg[e.classe].filles_inscrites = e.filles_inscrites || 0;
+                // Présences effectives : cumul (SUM) sur tous les jours du mois.
+                classesAgg[e.classe].garcons_presents += e.garcons_presents || 0;
+                classesAgg[e.classe].filles_presentes += e.filles_presentes || 0;
+            });
+        });
+
+        const beneficiairesParJour = joursDuMois.map(jour => sommeEffectifPresentJour(effectifsParSaisie[jour.id] || []));
+        const beneficiairesG = beneficiairesParJour.length ? Math.max(...beneficiairesParJour.map(b => b.garcons)) : 0;
+        const beneficiairesF = beneficiairesParJour.length ? Math.max(...beneficiairesParJour.map(b => b.filles)) : 0;
+        const platsServisG = beneficiairesParJour.reduce((s, b) => s + b.garcons, 0);
+        const platsServisF = beneficiairesParJour.reduce((s, b) => s + b.filles, 0);
+
+        const stockAgg = {};
+        rationReference.forEach(r => {
+            let entrees = 0, sorties = 0, pertes = 0;
+            joursDuMois.forEach(jour => {
+                const mvt = (mouvementsParSaisie[jour.id] || []).find(m => m.denree === r.denree);
+                if (mvt) {
+                    entrees += (mvt.reception_anan || 0) + (mvt.transfert_entrant || 0);
+                    sorties += (mvt.consommation || 0) + (mvt.transfert_sortant || 0);
+                    pertes += mvt.perte || 0;
+                }
+            });
+            const stockInitial = 0; // reporté du stock final du mois précédent (hors scope de ce calcul pur)
+            stockAgg[r.denree] = {
+                stock_initial: stockInitial,
+                entrees: Math.round(entrees * 1000) / 1000,
+                sorties: Math.round(sorties * 1000) / 1000,
+                pertes: Math.round(pertes * 1000) / 1000,
+                stock_final: Math.round((stockInitial + entrees - sorties - pertes) * 1000) / 1000
+            };
+        });
+
+        return {
+            mois: {
+                jours_reels_classe: joursDuMois.filter(j => j.classe_ouverte).length,
+                jours_reels_cantine: joursDuMois.filter(j => j.cantine_fonctionnelle).length,
+                jours_officiels_classe: joursDuMois.length,
+                beneficiaires_garcons: beneficiairesG,
+                beneficiaires_filles: beneficiairesF,
+                beneficiaires_total: beneficiairesG + beneficiairesF,
+                plats_servis_garcons: platsServisG,
+                plats_servis_filles: platsServisF,
+                plats_servis_total: platsServisG + platsServisF
+            },
+            classes: classesAgg,
+            stock: stockAgg
+        };
+    }
+
+    // Assemble l'objet complet attendu par le moteur de génération de modèles
+    // (identification + mois + classes + stock), prêt à être lu via `lireChamp`.
+    function assemblerDonneesEcole(ecole, commune, departement, moisISO, aggMois) {
+        const [annee, moisNum] = moisISO.split('-');
+        const moisNoms = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        return {
+            identification: {
+                nom_ecole: ecole ? ecole.nom : '',
+                code_ecole: ecole ? ecole.code_ecole : '',
+                commune: commune ? commune.nom : '',
+                departement: departement ? departement.nom : '',
+                mois_libelle: `${moisNoms[Number(moisNum) - 1]} ${annee}`,
+                annee_scolaire: `${annee}-${Number(annee) + 1}`
+            },
+            mois: aggMois.mois,
+            classes: aggMois.classes,
+            stock: aggMois.stock
+        };
+    }
 
     const REASON_LIST = null; // (kept in the <select> options directly)
 
@@ -747,6 +1110,14 @@
             await this.loadCollectesActiveCampaign();
             await this.loadValidations();
             this.updateCampaignHeader();
+
+            // Phase 1/2 : référence de ration (globale) + modèles importés par
+            // l'utilisateur courant (scopés par RLS — chacun ne voit que les siens).
+            const ration = await sb.from('ration_reference').select('*');
+            state.rationReference = ration.data || [];
+            if (['MEDIATEUR', 'SUPERVISEUR', 'ADMIN'].includes(state.profile.role)) {
+                state.mesModeles = await fetchAllRows('modeles_export', q => q.order('created_at', { ascending: false }));
+            }
         },
 
         // Charge le statut de validation (Médiateur et/ou Superviseur) pour la
@@ -812,8 +1183,10 @@
             const role = state.profile.role;
             const items = [
                 { id: 'form', label: 'Saisie Cantine', icon: 'fa-mobile-screen', roles: ['ENSEIGNANT', 'DIRECTEUR', 'ADMIN'] },
+                { id: 'saisie-jour', label: 'Saisie Quotidienne', icon: 'fa-calendar-day', roles: ['ENSEIGNANT', 'DIRECTEUR', 'ADMIN'] },
                 { id: 'secteur', label: 'Mon Secteur', icon: 'fa-map-location-dot', roles: ['MEDIATEUR'] },
                 { id: 'supervision', label: 'Ma Supervision', icon: 'fa-sitemap', roles: ['SUPERVISEUR'] },
+                { id: 'mes-modeles', label: 'Mes Modèles', icon: 'fa-file-contract', roles: ['MEDIATEUR', 'SUPERVISEUR', 'ADMIN'] },
                 { id: 'dashboard', label: 'Dashboard National', icon: 'fa-chart-pie', roles: ['ADMIN', 'DIRECTEUR'] },
                 { id: 'collectes', label: 'Registre des Collectes', icon: 'fa-list-check', roles: ['ADMIN', 'DIRECTEUR'] },
                 { id: 'non-respondents', label: 'Écoles Non-Répondantes', icon: 'fa-triangle-exclamation', roles: ['ADMIN', 'DIRECTEUR'] },
@@ -854,6 +1227,8 @@
             if (v === 'campaigns') this.renderCampaignsTable();
             if (v === 'secteur') this.renderSecteurView();
             if (v === 'supervision') this.renderSupervisionView();
+            if (v === 'saisie-jour') this.renderSaisieJourView();
+            if (v === 'mes-modeles') this.renderMesModelesView();
         },
 
         schoolsForRole() {
@@ -2241,6 +2616,349 @@
             a.remove();
             URL.revokeObjectURL(url);
             ui.banner("Fichier Excel téléchargé avec succès !");
+        },
+
+        // ================================================================
+        // PHASE 1 : VUE "SAISIE QUOTIDIENNE" (Enseignant / Directeur)
+        // ================================================================
+        renderSaisieJourView() {
+            document.getElementById('saisieJourEffectifsBody').innerHTML = CLASSES.map(c => `<tr>
+                <td class="py-1 px-2 font-bold">${c}</td>
+                <td class="py-1 px-2"><input type="number" min="0" id="eff_${c}_gi" oninput="app.recalculerVivresASortir()" class="w-20 border rounded p-1"></td>
+                <td class="py-1 px-2"><input type="number" min="0" id="eff_${c}_fi" oninput="app.recalculerVivresASortir()" class="w-20 border rounded p-1"></td>
+                <td class="py-1 px-2"><input type="number" min="0" id="eff_${c}_gp" class="w-20 border rounded p-1"></td>
+                <td class="py-1 px-2"><input type="number" min="0" id="eff_${c}_fp" class="w-20 border rounded p-1"></td>
+            </tr>`).join('');
+            document.getElementById('saisieJourStockBody').innerHTML = DENREES.map(d => `<tr>
+                <td class="py-1 px-2 font-bold">${DENREE_LIBELLES[d]}</td>
+                <td class="py-1 px-2"><input type="number" min="0" step="0.1" id="stock_${d}_reception" class="w-20 border rounded p-1"></td>
+                <td class="py-1 px-2 text-slate-500" id="stock_${d}_conso">0 kg</td>
+                <td class="py-1 px-2"><input type="number" min="0" step="0.1" id="stock_${d}_perte" class="w-20 border rounded p-1"></td>
+                <td class="py-1 px-2"><input type="text" id="stock_${d}_raison" class="w-28 border rounded p-1"></td>
+            </tr>`).join('');
+
+            const dateInput = document.getElementById('saisieJourDate');
+            if (!dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+            this.chargerSaisieJour(dateInput.value);
+            this.renderHistoriqueMois();
+        },
+
+        async chargerSaisieJour(dateStr) {
+            state.saisieJourDate = dateStr;
+            const mySchools = this.schoolsForRole();
+            const ecole = mySchools[0]; // un Enseignant/Directeur n'a qu'une seule école
+            document.getElementById('saisieJourEcoleLabel').innerText = ecole ? ecole.nom : "Aucune école affectée — contactez l'administrateur.";
+            if (!ecole) return;
+
+            const rows = await fetchAllRows('saisies_journalieres', q => q.eq('ecole_id', ecole.id).eq('date_saisie', dateStr));
+            const saisie = rows[0] || null;
+            state.saisieJourCourante = saisie;
+
+            document.getElementById('saisieJourOuverte').checked = saisie ? saisie.classe_ouverte : true;
+            document.getElementById('saisieJourFonctionnelle').checked = saisie ? saisie.cantine_fonctionnelle : false;
+            document.getElementById('saisieJourMenu').value = saisie ? (saisie.menu_du_jour || '') : '';
+            document.getElementById('saisieJourRaison').value = saisie ? (saisie.raison_non_fonctionnement || '') : '';
+
+            let effectifs = [], mouvements = [];
+            if (saisie) {
+                [effectifs, mouvements] = await Promise.all([
+                    fetchAllRows('effectifs_classe', q => q.eq('saisie_id', saisie.id)),
+                    fetchAllRows('mouvements_stock', q => q.eq('saisie_id', saisie.id))
+                ]);
+            }
+            CLASSES.forEach(c => {
+                const e = effectifs.find(x => x.classe === c);
+                document.getElementById(`eff_${c}_gi`).value = e ? e.garcons_inscrits : 0;
+                document.getElementById(`eff_${c}_fi`).value = e ? e.filles_inscrites : 0;
+                document.getElementById(`eff_${c}_gp`).value = e ? e.garcons_presents : 0;
+                document.getElementById(`eff_${c}_fp`).value = e ? e.filles_presentes : 0;
+            });
+            DENREES.forEach(d => {
+                const m = mouvements.find(x => x.denree === d);
+                document.getElementById(`stock_${d}_reception`).value = m ? m.reception_anan : 0;
+                document.getElementById(`stock_${d}_perte`).value = m ? m.perte : 0;
+                document.getElementById(`stock_${d}_raison`).value = m ? (m.raison_perte || '') : '';
+            });
+            this.recalculerVivresASortir();
+        },
+
+        // Recalcule en direct, à l'écran, les quantités de vivres à sortir —
+        // ration officielle × effectif inscrit du jour. C'est ce calcul qui
+        // supprime le besoin de le faire à la main sur le cahier de menus.
+        recalculerVivresASortir() {
+            const effJour = CLASSES.map(c => ({
+                garcons_inscrits: Number(document.getElementById(`eff_${c}_gi`).value) || 0,
+                filles_inscrites: Number(document.getElementById(`eff_${c}_fi`).value) || 0
+            }));
+            const inscrit = sommeEffectifInscritJour(effJour);
+            const vivres = calculerVivresASortir(inscrit.total, state.rationReference);
+            document.getElementById('saisieJourEffectifTotal').innerText = `${inscrit.total} élève(s) inscrit(s) (G: ${inscrit.garcons} · F: ${inscrit.filles})`;
+            const tbody = document.getElementById('vivresASortirBody');
+            tbody.innerHTML = vivres.map(v => `<tr><td class="py-1.5 px-2">${v.libelle}</td><td class="py-1.5 px-2 text-right font-bold">${v.qteKg} kg</td></tr>`).join('');
+            DENREES.forEach(d => {
+                const v = vivres.find(x => x.denree === d);
+                const consoEl = document.getElementById(`stock_${d}_conso`);
+                if (consoEl) consoEl.innerText = v ? `${v.qteKg} kg` : '0 kg';
+            });
+        },
+
+        async enregistrerSaisieJour() {
+            const mySchools = this.schoolsForRole();
+            const ecole = mySchools[0];
+            if (!ecole) { ui.banner("Aucune école ne vous est affectée.", "error"); return; }
+            const dateStr = state.saisieJourDate;
+
+            const payload = {
+                ecole_id: ecole.id,
+                date_saisie: dateStr,
+                classe_ouverte: document.getElementById('saisieJourOuverte').checked,
+                cantine_fonctionnelle: document.getElementById('saisieJourFonctionnelle').checked,
+                menu_du_jour: document.getElementById('saisieJourMenu').value,
+                raison_non_fonctionnement: document.getElementById('saisieJourRaison').value,
+                saisi_par: state.profile.id
+            };
+            const { data: saisie, error } = await sb.from('saisies_journalieres')
+                .upsert(payload, { onConflict: 'ecole_id,date_saisie' }).select().maybeSingle();
+            if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+
+            const effectifsPayload = CLASSES.map(c => ({
+                saisie_id: saisie.id,
+                classe: c,
+                garcons_inscrits: Number(document.getElementById(`eff_${c}_gi`).value) || 0,
+                filles_inscrites: Number(document.getElementById(`eff_${c}_fi`).value) || 0,
+                garcons_presents: Number(document.getElementById(`eff_${c}_gp`).value) || 0,
+                filles_presentes: Number(document.getElementById(`eff_${c}_fp`).value) || 0
+            }));
+            const { error: errEff } = await sb.from('effectifs_classe').upsert(effectifsPayload, { onConflict: 'saisie_id,classe' });
+            if (errEff) { ui.banner("Erreur effectifs : " + errEff.message, "error"); return; }
+
+            const effJourTotal = sommeEffectifInscritJour(effectifsPayload.map(e => ({ garcons_inscrits: e.garcons_inscrits, filles_inscrites: e.filles_inscrites }))).total;
+            const vivres = calculerVivresASortir(effJourTotal, state.rationReference);
+            const mouvementsPayload = DENREES.map(d => {
+                const v = vivres.find(x => x.denree === d);
+                return {
+                    saisie_id: saisie.id,
+                    denree: d,
+                    reception_anan: Number(document.getElementById(`stock_${d}_reception`).value) || 0,
+                    consommation: v ? v.qteKg : 0, // calculé automatiquement, jamais saisi à la main
+                    perte: Number(document.getElementById(`stock_${d}_perte`).value) || 0,
+                    raison_perte: document.getElementById(`stock_${d}_raison`).value
+                };
+            });
+            const { error: errStock } = await sb.from('mouvements_stock').upsert(mouvementsPayload, { onConflict: 'saisie_id,denree' });
+            if (errStock) { ui.banner("Erreur stock : " + errStock.message, "error"); return; }
+
+            ui.banner("Fiche du jour enregistrée avec succès !");
+            state.saisieJourCourante = saisie;
+            this.renderHistoriqueMois();
+        },
+
+        // Petit récapitulatif du mois en cours, pour que l'enseignant voie d'un
+        // coup d'œil les jours déjà saisis avant de passer au mois suivant.
+        async renderHistoriqueMois() {
+            const mySchools = this.schoolsForRole();
+            const ecole = mySchools[0];
+            const tbody = document.getElementById('historiqueMoisBody');
+            if (!ecole || !tbody) return;
+            const moisISO = (state.saisieJourDate || new Date().toISOString().slice(0, 10)).slice(0, 7);
+            const rows = await fetchAllRows('saisies_journalieres', q => q.eq('ecole_id', ecole.id).gte('date_saisie', moisISO + '-01').lte('date_saisie', moisISO + '-31'));
+            rows.sort((a, b) => a.date_saisie.localeCompare(b.date_saisie));
+            if (!rows.length) { tbody.innerHTML = `<tr><td colspan="4" class="p-3 text-center text-slate-400">Aucune saisie ce mois-ci.</td></tr>`; return; }
+            tbody.innerHTML = rows.map(r => `<tr>
+                <td class="py-1.5 px-2">${new Date(r.date_saisie + 'T00:00:00').toLocaleDateString('fr-FR')}</td>
+                <td class="py-1.5 px-2 text-center">${r.classe_ouverte ? '<i class="fa-solid fa-check text-emerald-600"></i>' : '<i class="fa-solid fa-xmark text-slate-300"></i>'}</td>
+                <td class="py-1.5 px-2 text-center">${r.cantine_fonctionnelle ? '<i class="fa-solid fa-check text-emerald-600"></i>' : '<i class="fa-solid fa-xmark text-slate-300"></i>'}</td>
+                <td class="py-1.5 px-2"><button onclick="document.getElementById('saisieJourDate').value='${r.date_saisie}';app.chargerSaisieJour('${r.date_saisie}');" class="text-primary-600 font-bold text-[11px]">Modifier</button></td>
+            </tr>`).join('');
+        },
+
+        // ================================================================
+        // PHASE 2 : MOTEUR DE MODÈLES (import, calibration, génération)
+        // ================================================================
+        renderMesModelesView() {
+            const tbody = document.getElementById('mesModelesBody');
+            if (!state.mesModeles.length) { tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-400">Aucun modèle importé pour l'instant.</td></tr>`; return; }
+            tbody.innerHTML = state.mesModeles.map(m => `<tr>
+                <td class="py-2.5 px-3 font-bold">${m.nom}</td>
+                <td class="py-2.5 px-3 text-slate-500">${new Date(m.created_at).toLocaleDateString('fr-FR')}</td>
+                <td class="py-2.5 px-3 text-right space-x-2">
+                    <button onclick="app.ouvrirGenererModal('${m.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg"><i class="fa-solid fa-file-export mr-1"></i>Générer</button>
+                    <button onclick="app.supprimerModele('${m.id}')" class="text-red-500 font-bold text-[11px] px-2 py-1.5"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            </tr>`).join('');
+        },
+
+        async supprimerModele(modeleId) {
+            if (!confirm("Supprimer ce modèle ? Cette action est irréversible.")) return;
+            const { error } = await sb.from('modeles_export').delete().eq('id', modeleId);
+            if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+            state.mesModeles = state.mesModeles.filter(m => m.id !== modeleId);
+            this.renderMesModelesView();
+            ui.banner("Modèle supprimé.");
+        },
+
+        // --- Import + calibration ---
+        async handleImportModele(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (!file.name.toLowerCase().endsWith('.xlsx')) {
+                ui.banner("Seuls les modèles au format Excel (.xlsx) sont pris en charge pour l'instant.", "error");
+                event.target.value = '';
+                return;
+            }
+            const buffer = await file.arrayBuffer();
+            const wb = new ExcelJS.Workbook();
+            await wb.xlsx.load(buffer);
+            state.calibrationWb = wb;
+            state.calibrationFile = buffer;
+            state.calibrationNom = file.name.replace(/\.xlsx$/i, '');
+            state.calibrationMapping = [];
+            event.target.value = '';
+
+            document.getElementById('calibrationNomInput').value = state.calibrationNom;
+            const sheetSelect = document.getElementById('calibrationSheetSelect');
+            sheetSelect.innerHTML = wb.worksheets.map(ws => `<option value="${ws.name}">${ws.name}</option>`).join('');
+            this.renderCalibrationTable(wb.worksheets[0].name);
+
+            document.querySelectorAll('.app-view').forEach(v => v.classList.add('hidden'));
+            document.getElementById('view-calibration').classList.remove('hidden');
+        },
+
+        annulerCalibration() {
+            state.calibrationWb = null;
+            state.calibrationFile = null;
+            state.calibrationMapping = [];
+            this.navigateTo('mes-modeles');
+        },
+
+        // Affiche la feuille choisie comme une grille cliquable : chaque cellule
+        // calibrée est surlignée avec le libellé court du champ associé.
+        renderCalibrationTable(sheetName) {
+            const ws = state.calibrationWb.getWorksheet(sheetName);
+            const nbRows = Math.min(ws.actualRowCount || ws.rowCount || 0, 100);
+            const nbCols = Math.min(ws.actualColumnCount || ws.columnCount || 0, 25);
+            let html = '<table class="text-[10px] border-collapse"><tbody>';
+            for (let r = 1; r <= nbRows; r++) {
+                html += '<tr>';
+                for (let c = 1; c <= nbCols; c++) {
+                    const cell = ws.getCell(r, c);
+                    const addr = cell.address;
+                    const mapping = state.calibrationMapping.find(m => m.cellule === addr);
+                    const val = cell.value == null ? '' : String(cell.value).slice(0, 18);
+                    const cls = mapping ? 'bg-emerald-100 border-emerald-400 text-emerald-800 font-bold' : 'border-slate-200 hover:bg-slate-100';
+                    const title = mapping ? (FIELD_CATALOG.find(f => f.champ === mapping.champ) || {}).label || mapping.champ : val;
+                    html += `<td class="border px-1.5 py-1 cursor-pointer whitespace-nowrap max-w-[120px] overflow-hidden text-ellipsis ${cls}" title="${title.replace(/"/g, '')}" onclick="app.selectCalibrationCell('${sheetName}', ${r}, ${c})">${mapping ? '✓ ' + title.slice(0, 14) : val}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+            document.getElementById('calibrationTableWrap').innerHTML = html;
+            document.getElementById('calibrationMappingCount').innerText = `${state.calibrationMapping.length} cellule(s) calibrée(s)`;
+        },
+
+        selectCalibrationCell(sheetName, row, col) {
+            const ws = state.calibrationWb.getWorksheet(sheetName);
+            const cell = ws.getCell(row, col);
+            state._calibrationSelected = { sheetName, address: cell.address };
+            document.getElementById('calibrationSelectedAddr').innerText = cell.address;
+            document.getElementById('calibrationSelectedValue').innerText = cell.value == null ? '(vide)' : String(cell.value);
+
+            const existing = state.calibrationMapping.find(m => m.cellule === cell.address);
+            const groups = {};
+            FIELD_CATALOG.forEach(f => { (groups[f.groupe] = groups[f.groupe] || []).push(f); });
+            const sel = document.getElementById('calibrationFieldSelect');
+            sel.innerHTML = '<option value="">— Choisir un champ —</option>' + Object.keys(groups).map(g =>
+                `<optgroup label="${g}">${groups[g].map(f => `<option value="${f.champ}" ${existing && existing.champ === f.champ ? 'selected' : ''}>${f.label}</option>`).join('')}</optgroup>`
+            ).join('');
+            document.getElementById('calibrationCellPanel').classList.remove('hidden');
+        },
+
+        associerChampCalibration() {
+            const sel = state._calibrationSelected;
+            if (!sel) return;
+            const champ = document.getElementById('calibrationFieldSelect').value;
+            state.calibrationMapping = state.calibrationMapping.filter(m => m.cellule !== sel.address);
+            if (champ) state.calibrationMapping.push({ cellule: sel.address, champ });
+            this.renderCalibrationTable(sel.sheetName);
+        },
+
+        async enregistrerModele() {
+            const nom = document.getElementById('calibrationNomInput').value.trim();
+            if (!nom) { ui.banner("Donnez un nom au modèle.", "error"); return; }
+            if (!state.calibrationMapping.length) { ui.banner("Calibrez au moins une cellule avant d'enregistrer.", "error"); return; }
+
+            const sheetName = document.getElementById('calibrationSheetSelect').value;
+            const path = `${state.profile.id}/${Date.now()}_${nom.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+            const { error: uploadErr } = await sb.storage.from('modeles-export').upload(path, state.calibrationFile, {
+                contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            if (uploadErr) { ui.banner("Erreur d'enregistrement du fichier : " + uploadErr.message, "error"); return; }
+
+            const { data, error } = await sb.from('modeles_export').insert({
+                nom, type: 'excel', cree_par: state.profile.id,
+                fichier_storage_path: path,
+                mapping_config: { feuille: sheetName, champs: state.calibrationMapping }
+            }).select().maybeSingle();
+            if (error) { ui.banner("Erreur : " + error.message, "error"); return; }
+
+            state.mesModeles.unshift(data);
+            state.calibrationWb = null; state.calibrationFile = null; state.calibrationMapping = [];
+            ui.banner("Modèle enregistré avec succès !");
+            this.navigateTo('mes-modeles');
+        },
+
+        // --- Génération ---
+        ouvrirGenererModal(modeleId) {
+            state._modeleAGenererId = modeleId;
+            const sel = document.getElementById('genererEcoleSelect');
+            sel.innerHTML = this.schoolsForRole().map(s => `<option value="${s.id}">${s.nom}</option>`).join('');
+            document.getElementById('genererMois').value = new Date().toISOString().slice(0, 7);
+            ui.openModal('genererModeleModal');
+        },
+
+        async genererDepuisModele() {
+            const modele = state.mesModeles.find(m => m.id === state._modeleAGenererId);
+            if (!modele) return;
+            const ecoleId = document.getElementById('genererEcoleSelect').value;
+            const moisISO = document.getElementById('genererMois').value;
+            if (!ecoleId || !moisISO) { ui.banner("Choisissez une école et un mois.", "error"); return; }
+
+            ui.banner("Génération en cours…");
+            const ecole = state.schools.find(s => s.id === ecoleId);
+            const commune = ecole ? state.communes.find(c => c.id === ecole.commune_id) : null;
+            const departement = commune ? state.departments.find(d => d.id === commune.departement_id) : null;
+
+            const saisies = await fetchAllRows('saisies_journalieres', q => q.eq('ecole_id', ecoleId).gte('date_saisie', moisISO + '-01').lte('date_saisie', moisISO + '-31'));
+            const saisieIds = saisies.map(s => s.id);
+            let effectifs = [], mouvements = [];
+            if (saisieIds.length) {
+                [effectifs, mouvements] = await Promise.all([
+                    fetchAllRows('effectifs_classe', q => q.in('saisie_id', saisieIds)),
+                    fetchAllRows('mouvements_stock', q => q.in('saisie_id', saisieIds))
+                ]);
+            }
+            const effectifsParSaisie = {}, mouvementsParSaisie = {};
+            saisieIds.forEach(id => {
+                effectifsParSaisie[id] = effectifs.filter(e => e.saisie_id === id);
+                mouvementsParSaisie[id] = mouvements.filter(m => m.saisie_id === id);
+            });
+
+            const aggMois = agregerMois(saisies, effectifsParSaisie, mouvementsParSaisie, ecoleId, moisISO, state.rationReference);
+            const donnees = assemblerDonneesEcole(ecole, commune, departement, moisISO, aggMois);
+
+            const { data: fileBlob, error: dlErr } = await sb.storage.from('modeles-export').download(modele.fichier_storage_path);
+            if (dlErr) { ui.banner("Erreur : impossible de récupérer le modèle original (" + dlErr.message + ")", "error"); return; }
+            const buffer = await fileBlob.arrayBuffer();
+            const wb = new ExcelJS.Workbook();
+            await wb.xlsx.load(buffer);
+            const ws = wb.getWorksheet(modele.mapping_config.feuille);
+            modele.mapping_config.champs.forEach(({ cellule, champ }) => {
+                const v = lireChamp(donnees, champ);
+                ws.getCell(cellule).value = (v === undefined || v === null) ? '' : v;
+            });
+
+            ui.closeModal('genererModeleModal');
+            await this._downloadWorkbook(wb, `${modele.nom.replace(/\s+/g, '_')}_${ecole ? ecole.nom.replace(/\s+/g, '_') : ''}_${moisISO}.xlsx`);
         }
     };
 
