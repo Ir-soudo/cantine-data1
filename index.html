@@ -152,13 +152,14 @@
         <div class="max-w-lg w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-5">
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="font-black text-lg text-slate-900">Bienvenue — configurons votre compte</h1>
-                    <p class="text-xs text-slate-500">3 étapes rapides, puis vous accédez directement à l'application.</p>
+                    <h1 id="obHeaderTitle" class="font-black text-lg text-slate-900">Bienvenue — configurons votre compte</h1>
+                    <p id="obHeaderSubtitle" class="text-xs text-slate-500">3 étapes rapides, puis vous accédez directement à l'application.</p>
                 </div>
-                <button onclick="auth.logout()" class="text-[11px] font-bold text-slate-400 hover:text-slate-700 whitespace-nowrap ml-3">Se déconnecter</button>
+                <button id="obLogoutBtn" onclick="auth.logout()" class="text-[11px] font-bold text-slate-400 hover:text-slate-700 whitespace-nowrap ml-3">Se déconnecter</button>
+                <button id="obCloseEditBtn" onclick="app.onboardingCloseEdit()" class="hidden text-[11px] font-bold text-slate-400 hover:text-slate-700 whitespace-nowrap ml-3"><i class="fa-solid fa-xmark mr-1"></i>Fermer</button>
             </div>
 
-            <div class="flex items-center gap-1.5">
+            <div id="obStepDots" class="flex items-center gap-1.5">
                 <div id="obStepDot1" class="h-1.5 flex-1 rounded-full bg-primary-600"></div>
                 <div id="obStepDot2" class="h-1.5 flex-1 rounded-full bg-slate-200"></div>
                 <div id="obStepDot3" class="h-1.5 flex-1 rounded-full bg-slate-200"></div>
@@ -267,6 +268,7 @@
                 <div class="flex-1"></div>
                 <button type="button" id="obNextBtn" onclick="app.onboardingGoStep(1)" class="hidden px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-bold text-xs">Continuer</button>
                 <button type="button" id="obSubmitBtn" onclick="app.onboardingSubmit()" class="hidden px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs"><i class="fa-solid fa-check mr-1"></i>Terminer et accéder à l'application</button>
+                <button type="button" id="obSaveEditBtn" onclick="app.onboardingSubmitEditMediateur()" class="hidden px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs"><i class="fa-solid fa-floppy-disk mr-1"></i>Enregistrer mes modifications</button>
             </div>
         </div>
     </div>
@@ -529,6 +531,7 @@
                                 <p class="text-xs text-slate-500" id="secteurProgressLabel">-</p>
                             </div>
                             <div class="flex items-center gap-2">
+                                <button onclick="app.onboardingOpenEditMediateur()" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl"><i class="fa-solid fa-pen-to-square mr-1"></i> Modifier mon périmètre</button>
                                 <button onclick="app.runExcelExportMediateur()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl"><i class="fa-solid fa-file-export mr-1"></i> Générer mon fichier</button>
                                 <button id="btnValiderSecteur" onclick="app.validerSecteur()" class="bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl"><i class="fa-solid fa-check-double mr-1"></i> Valider mon secteur</button>
                             </div>
@@ -3394,6 +3397,129 @@
                 document.getElementById('onboardingErrorBox').classList.remove('hidden');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i>Terminer et accéder à l\'application';
+            }
+        },
+
+        // ================================================================
+        // MODIFIER MON PÉRIMÈTRE (Médiateur) — réouvre le même écran que le
+        // self-onboarding, mais pré-rempli avec le secteur actuel, pour un
+        // compte qui a déjà terminé sa configuration initiale. N'écrit que
+        // dans mediateur_communes / mediateur_ecoles (+ superviseur_id si
+        // changé) ; ne touche jamais à `role` ni `onboarding_complete`.
+        // ================================================================
+        async onboardingOpenEditMediateur() {
+            await this.loadOnboardingRefData();
+
+            const mesCommunesEntieres = state.mediateurCommunes.filter(mc => mc.mediateur_id === state.profile.id);
+            const mesEcolesPrecises = state.mediateurEcoles.filter(me => me.mediateur_id === state.profile.id);
+            const medCommunes = mesCommunesEntieres.map(mc => {
+                const commune = state._obCommunes.find(c => c.id === mc.commune_id);
+                return { type: 'commune', id: mc.commune_id, nom: commune ? commune.nom : '(commune inconnue)' };
+            });
+            mesEcolesPrecises.forEach(me => {
+                const school = state.schools.find(s => s.id === me.ecole_id);
+                const commune = school ? state._obCommunes.find(c => c.id === school.commune_id) : null;
+                medCommunes.push({
+                    type: 'ecole', id: me.ecole_id,
+                    nom: school ? school.nom : '(école inconnue)',
+                    communeId: school ? school.commune_id : '',
+                    communeNom: commune ? commune.nom : '?'
+                });
+            });
+
+            state.ob = {
+                step: 2, role: 'MEDIATEUR', deptId: '', communeId: '', ecoleId: '', newEcole: false,
+                medCommunes, superviseurId: state.profile.superviseur_id || '', editMode: true
+            };
+
+            const deptOptions = state._obDepartments.map(d => `<option value="${d.id}">${d.nom}</option>`).join('');
+            document.getElementById('obMedDept').innerHTML = '<option value="">— Choisir —</option>' + deptOptions;
+            document.getElementById('obMedCommune').innerHTML = '';
+            document.getElementById('obMedEcolesPrecisesPanel').classList.add('hidden');
+            document.getElementById('obMedEcolesPrecisesList').innerHTML = '';
+            hide('onboardingErrorBox');
+
+            const { data: superviseurs } = await sb.from('profils').select('id, nom, prenom').eq('role', 'SUPERVISEUR');
+            document.getElementById('obSuperviseur').innerHTML = '<option value="">— Je ne sais pas encore —</option>' +
+                (superviseurs || []).map(s => `<option value="${s.id}" ${s.id === state.ob.superviseurId ? 'selected' : ''}>${s.prenom} ${s.nom}</option>`).join('');
+
+            this._renderMedCommunesList();
+
+            document.getElementById('obHeaderTitle').innerText = "Modifiez votre périmètre";
+            document.getElementById('obHeaderSubtitle').innerText = "Ajoutez ou retirez des communes / écoles de votre secteur, puis enregistrez.";
+            document.getElementById('obStepDots').classList.add('hidden');
+            document.getElementById('obLogoutBtn').classList.add('hidden');
+            document.getElementById('obCloseEditBtn').classList.remove('hidden');
+            ['obStep1', 'obStep2Ecole', 'obStep2Superviseur', 'obStep3'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById('obStep2Mediateur').classList.remove('hidden');
+            document.getElementById('obBackBtn').classList.add('hidden');
+            document.getElementById('obNextBtn').classList.add('hidden');
+            document.getElementById('obSubmitBtn').classList.add('hidden');
+            document.getElementById('obSaveEditBtn').classList.remove('hidden');
+
+            show('onboardingScreen');
+        },
+
+        onboardingCloseEdit() {
+            hide('onboardingScreen');
+            state.ob = null;
+            document.getElementById('obHeaderTitle').innerText = "Bienvenue — configurons votre compte";
+            document.getElementById('obHeaderSubtitle').innerText = "3 étapes rapides, puis vous accédez directement à l'application.";
+            document.getElementById('obStepDots').classList.remove('hidden');
+            document.getElementById('obLogoutBtn').classList.remove('hidden');
+            document.getElementById('obCloseEditBtn').classList.add('hidden');
+            document.getElementById('obSaveEditBtn').classList.add('hidden');
+        },
+
+        async onboardingSubmitEditMediateur() {
+            const btn = document.getElementById('obSaveEditBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Enregistrement…';
+            try {
+                const communesEntieres = state.ob.medCommunes.filter(c => c.type === 'commune');
+                const ecolesPrecises = state.ob.medCommunes.filter(c => c.type === 'ecole');
+
+                const oldCommuneIds = new Set(state.mediateurCommunes.filter(mc => mc.mediateur_id === state.profile.id).map(mc => mc.commune_id));
+                const newCommuneIds = new Set(communesEntieres.map(c => c.id));
+                const oldEcoleIds = new Set(state.mediateurEcoles.filter(me => me.mediateur_id === state.profile.id).map(me => me.ecole_id));
+                const newEcoleIds = new Set(ecolesPrecises.map(c => c.id));
+
+                const communesToDelete = [...oldCommuneIds].filter(id => !newCommuneIds.has(id));
+                const ecolesToDelete = [...oldEcoleIds].filter(id => !newEcoleIds.has(id));
+
+                if (communesEntieres.length) {
+                    const rows = communesEntieres.map(c => ({ mediateur_id: state.profile.id, commune_id: c.id }));
+                    const { error } = await sb.from('mediateur_communes').upsert(rows, { onConflict: 'mediateur_id,commune_id' });
+                    if (error) throw error;
+                }
+                if (communesToDelete.length) {
+                    const { error } = await sb.from('mediateur_communes').delete().eq('mediateur_id', state.profile.id).in('commune_id', communesToDelete);
+                    if (error) throw error;
+                }
+                if (ecolesPrecises.length) {
+                    const rows = ecolesPrecises.map(c => ({ mediateur_id: state.profile.id, ecole_id: c.id }));
+                    const { error } = await sb.from('mediateur_ecoles').upsert(rows, { onConflict: 'mediateur_id,ecole_id' });
+                    if (error) throw error;
+                }
+                if (ecolesToDelete.length) {
+                    const { error } = await sb.from('mediateur_ecoles').delete().eq('mediateur_id', state.profile.id).in('ecole_id', ecolesToDelete);
+                    if (error) throw error;
+                }
+
+                const supSel = document.getElementById('obSuperviseur').value;
+                if (supSel !== (state.profile.superviseur_id || '')) {
+                    const { error } = await sb.from('profils').update({ superviseur_id: supSel || null }).eq('id', state.profile.id);
+                    if (error) throw error;
+                }
+
+                ui.banner("Votre périmètre a été mis à jour.");
+                this.onboardingCloseEdit();
+                await this.boot();
+            } catch (err) {
+                document.getElementById('onboardingErrorBox').innerText = "Erreur : " + (err.message || err);
+                document.getElementById('onboardingErrorBox').classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1"></i>Enregistrer mes modifications';
             }
         }
     };
