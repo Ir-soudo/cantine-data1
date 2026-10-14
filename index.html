@@ -30,6 +30,13 @@
 </head>
 <body class="h-full text-slate-800 bg-slate-50 antialiased">
 
+    <!-- Notifications globales (banner()) : placées ici, hors de #appRoot,
+         pour rester visibles quelle que soit l'écran actif (authScreen,
+         pendingScreen, onboardingScreen incluant le mode édition de
+         périmètre, ou appRoot). Position fixe pour rester visibles sans
+         dépendre du défilement de la page. -->
+    <div id="globalNotificationArea" class="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-[70] space-y-2"></div>
+
     <!-- ============================================================ -->
     <!-- CONFIG SUPABASE — À REMPLIR AVANT UTILISATION                -->
     <!-- ============================================================ -->
@@ -310,7 +317,6 @@
             </aside>
 
             <main class="flex-1 min-w-0">
-                <div id="globalNotificationArea" class="mb-4"></div>
 
                 <!-- VUE : SAISIE -->
                 <section id="view-form" class="app-view hidden">
@@ -3457,11 +3463,16 @@
             document.getElementById('obSubmitBtn').classList.add('hidden');
             document.getElementById('obSaveEditBtn').classList.remove('hidden');
 
+            // Comme les autres écrans plein-écran (auth/pending/onboarding),
+            // onboardingScreen n'est pas en position fixe : il faut masquer
+            // appRoot pour éviter que les deux s'empilent dans la page.
+            hide('appRoot');
             show('onboardingScreen');
         },
 
         onboardingCloseEdit() {
             hide('onboardingScreen');
+            show('appRoot');
             state.ob = null;
             document.getElementById('obHeaderTitle').innerText = "Bienvenue — configurons votre compte";
             document.getElementById('obHeaderSubtitle').innerText = "3 étapes rapides, puis vous accédez directement à l'application.";
