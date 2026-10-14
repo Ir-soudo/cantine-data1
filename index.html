@@ -127,18 +127,139 @@
                     <input type="password" id="signupPassword" required minlength="6" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
                 </div>
                 <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-lg">Créer mon compte</button>
-                <p class="text-[11px] text-slate-400 text-center">Après inscription, un administrateur devra vous affecter un rôle et une école avant que vous puissiez saisir des données.</p>
+                <p class="text-[11px] text-slate-400 text-center">Après confirmation de votre compte, vous configurerez vous-même votre rôle et votre zone d'intervention en 3 étapes.</p>
             </form>
         </div>
     </div>
 
-    <!-- ÉCRAN : COMPTE EN ATTENTE D'AFFECTATION -->
+    <!-- ÉCRAN : COMPTE DÉSACTIVÉ (seul levier restant de l'Admin) -->
     <div id="pendingScreen" class="hidden min-h-screen flex items-center justify-center p-6">
         <div class="max-w-md bg-white border border-amber-200 rounded-2xl shadow-sm p-6 text-center space-y-3">
             <i class="fa-solid fa-hourglass-half text-3xl text-amber-500"></i>
-            <h1 class="font-bold text-lg text-slate-900">Compte en attente d'affectation</h1>
-            <p class="text-sm text-slate-600">Votre compte a bien été créé, mais un administrateur doit encore vous attribuer un rôle et une école avant que vous puissiez utiliser l'application.</p>
+            <h1 class="font-bold text-lg text-slate-900">Compte désactivé</h1>
+            <p class="text-sm text-slate-600">Votre compte a été désactivé par un administrateur. Contactez-le pour en savoir plus.</p>
             <button onclick="auth.logout()" class="text-xs font-bold text-slate-500 hover:text-slate-800">Se déconnecter</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ASSISTANT DE CONFIGURATION (SELF-ONBOARDING) -->
+    <!-- Affiché une seule fois, à la première connexion après confirmation -->
+    <!-- du compte : l'utilisateur choisit lui-même son rôle, sa zone et son -->
+    <!-- école — sans intervention de l'administrateur. -->
+    <!-- ============================================================ -->
+    <div id="onboardingScreen" class="hidden min-h-screen flex items-center justify-center p-4 sm:p-6 bg-slate-50">
+        <div class="max-w-lg w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="font-black text-lg text-slate-900">Bienvenue — configurons votre compte</h1>
+                    <p class="text-xs text-slate-500">3 étapes rapides, puis vous accédez directement à l'application.</p>
+                </div>
+                <button onclick="auth.logout()" class="text-[11px] font-bold text-slate-400 hover:text-slate-700 whitespace-nowrap ml-3">Se déconnecter</button>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+                <div id="obStepDot1" class="h-1.5 flex-1 rounded-full bg-primary-600"></div>
+                <div id="obStepDot2" class="h-1.5 flex-1 rounded-full bg-slate-200"></div>
+                <div id="obStepDot3" class="h-1.5 flex-1 rounded-full bg-slate-200"></div>
+            </div>
+
+            <div id="onboardingErrorBox" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs p-2.5 rounded-lg"></div>
+
+            <!-- ÉTAPE 1 : RÔLE -->
+            <div id="obStep1" class="space-y-3">
+                <h2 class="font-bold text-sm text-slate-900">1. Quel est votre rôle ?</h2>
+                <div class="grid grid-cols-1 gap-2 text-sm">
+                    <button onclick="app.onboardingPickRole('ENSEIGNANT')" class="ob-role-btn text-left p-3 rounded-xl border-2 border-slate-200 hover:border-primary-400 flex items-center gap-3">
+                        <i class="fa-solid fa-chalkboard-user text-primary-600 w-5 text-center"></i>
+                        <div><p class="font-bold">Enseignant(e)</p><p class="text-[11px] text-slate-500">Je saisis les données de ma classe / mon école</p></div>
+                    </button>
+                    <button onclick="app.onboardingPickRole('DIRECTEUR')" class="ob-role-btn text-left p-3 rounded-xl border-2 border-slate-200 hover:border-primary-400 flex items-center gap-3">
+                        <i class="fa-solid fa-user-tie text-primary-600 w-5 text-center"></i>
+                        <div><p class="font-bold">Directeur(trice) d'école</p><p class="text-[11px] text-slate-500">Je gère la saisie pour mon école</p></div>
+                    </button>
+                    <button onclick="app.onboardingPickRole('MEDIATEUR')" class="ob-role-btn text-left p-3 rounded-xl border-2 border-slate-200 hover:border-primary-400 flex items-center gap-3">
+                        <i class="fa-solid fa-map-location-dot text-primary-600 w-5 text-center"></i>
+                        <div><p class="font-bold">Médiateur</p><p class="text-[11px] text-slate-500">Je consolide les données de ma/mes commune(s)</p></div>
+                    </button>
+                    <button onclick="app.onboardingPickRole('SUPERVISEUR')" class="ob-role-btn text-left p-3 rounded-xl border-2 border-slate-200 hover:border-primary-400 flex items-center gap-3">
+                        <i class="fa-solid fa-sitemap text-primary-600 w-5 text-center"></i>
+                        <div><p class="font-bold">Superviseur</p><p class="text-[11px] text-slate-500">Je supervise un groupe de médiateurs</p></div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ÉTAPE 2A : ZONE + ÉCOLE (Enseignant / Directeur) -->
+            <div id="obStep2Ecole" class="hidden space-y-3">
+                <h2 class="font-bold text-sm text-slate-900">2. Votre école</h2>
+                <div>
+                    <label class="block font-bold text-xs mb-1">Département</label>
+                    <select id="obDept" onchange="app.onboardingPopulateCommunes()" class="w-full border rounded-lg p-2.5 text-sm"></select>
+                </div>
+                <div>
+                    <label class="block font-bold text-xs mb-1">Commune</label>
+                    <select id="obCommune" onchange="app.onboardingPopulateEcoles()" class="w-full border rounded-lg p-2.5 text-sm"></select>
+                </div>
+                <div id="obEcoleChoiceWrap">
+                    <label class="block font-bold text-xs mb-1">École</label>
+                    <select id="obEcole" class="w-full border rounded-lg p-2.5 text-sm"></select>
+                </div>
+                <button type="button" onclick="app.onboardingToggleNewEcole()" id="obToggleNewEcoleBtn" class="text-[11px] font-bold text-primary-600 hover:text-primary-800">
+                    <i class="fa-solid fa-circle-plus mr-1"></i>Mon école n'est pas dans la liste
+                </button>
+                <div id="obNewEcoleForm" class="hidden space-y-2 bg-slate-50 rounded-xl p-3">
+                    <div>
+                        <label class="block font-bold text-xs mb-1">Nom de l'école</label>
+                        <input type="text" id="obNewEcoleNom" placeholder="Ex : EPP Centre" class="w-full border rounded-lg p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-xs mb-1">Code école (si vous le connaissez — facultatif)</label>
+                        <input type="text" id="obNewEcoleCode" placeholder="Laissez vide si inconnu" class="w-full border rounded-lg p-2 text-sm">
+                    </div>
+                    <p class="text-[10px] text-slate-400">Elle sera ajoutée au référentiel national, rattachée à la commune choisie ci-dessus.</p>
+                </div>
+            </div>
+
+            <!-- ÉTAPE 2B : SECTEUR (Médiateur) -->
+            <div id="obStep2Mediateur" class="hidden space-y-3">
+                <h2 class="font-bold text-sm text-slate-900">2. Votre secteur d'intervention</h2>
+                <p class="text-[11px] text-slate-500">Ajoutez une ou plusieurs communes dont vous consoliderez les données.</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <select id="obMedDept" onchange="app.onboardingPopulateCommunesForMediateur()" class="w-full border rounded-lg p-2.5 text-sm"></select>
+                    <select id="obMedCommune" class="w-full border rounded-lg p-2.5 text-sm"></select>
+                </div>
+                <button type="button" onclick="app.onboardingAddCommuneMediateur()" class="text-xs font-bold text-primary-600 hover:text-primary-800"><i class="fa-solid fa-plus mr-1"></i>Ajouter cette commune</button>
+                <div id="obMedCommunesList" class="flex flex-wrap gap-1.5"></div>
+
+                <div class="pt-2">
+                    <label class="block font-bold text-xs mb-1">Mon superviseur (facultatif — vous pourrez le préciser plus tard)</label>
+                    <select id="obSuperviseur" class="w-full border rounded-lg p-2.5 text-sm">
+                        <option value="">— Je ne sais pas encore —</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ÉTAPE 2C : SUPERVISEUR (rien à sélectionner) -->
+            <div id="obStep2Superviseur" class="hidden space-y-3">
+                <h2 class="font-bold text-sm text-slate-900">2. Votre périmètre</h2>
+                <div class="bg-primary-50 border border-primary-200 text-primary-800 text-xs p-3 rounded-xl">
+                    <i class="fa-solid fa-circle-info mr-1"></i>
+                    Aucune action nécessaire : ce sont les médiateurs qui vous sélectionneront comme superviseur lors de leur propre configuration. Vous les verrez apparaître automatiquement dans "Ma Supervision".
+                </div>
+            </div>
+
+            <!-- ÉTAPE 3 : RÉCAPITULATIF -->
+            <div id="obStep3" class="hidden space-y-3">
+                <h2 class="font-bold text-sm text-slate-900">3. Vérifiez et validez</h2>
+                <div id="obRecap" class="bg-slate-50 rounded-xl p-4 text-sm space-y-1"></div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2">
+                <button type="button" id="obBackBtn" onclick="app.onboardingGoStep(-1)" class="hidden px-4 py-2 bg-slate-200 rounded-lg font-bold text-xs">Retour</button>
+                <div class="flex-1"></div>
+                <button type="button" id="obNextBtn" onclick="app.onboardingGoStep(1)" class="hidden px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-bold text-xs">Continuer</button>
+                <button type="button" id="obSubmitBtn" onclick="app.onboardingSubmit()" class="hidden px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs"><i class="fa-solid fa-check mr-1"></i>Terminer et accéder à l'application</button>
+            </div>
         </div>
     </div>
 
@@ -1063,13 +1184,18 @@
             }
             state.profile = profileRow;
 
-            // Seuls Enseignant et Directeur (saisie par école) ont besoin d'une
-            // école affectée pour démarrer ; Médiateur/Superviseur n'ont besoin
-            // d'aucun rattachement école (le leur se fait par communes/médiateurs).
-            const needsSchool = ['ENSEIGNANT', 'DIRECTEUR'].includes(profileRow.role) && !profileRow.ecole_id;
-            if (!profileRow.actif || needsSchool) {
+            // Un compte désactivé par l'Admin reste bloqué (seul levier Admin
+            // restant) ; sinon, un compte pas encore configuré passe par
+            // l'assistant de self-onboarding plutôt que d'attendre l'Admin.
+            if (!profileRow.actif) {
                 hide('loadingScreen'); hide('authScreen');
                 show('pendingScreen');
+                return;
+            }
+            if (!profileRow.onboarding_complete) {
+                hide('loadingScreen'); hide('authScreen');
+                await this.renderOnboardingWizard();
+                show('onboardingScreen');
                 return;
             }
 
@@ -1079,7 +1205,7 @@
             this.navigateTo(landingByRole[profileRow.role] || 'dashboard');
             this.subscribeRealtime();
 
-            hide('loadingScreen'); hide('authScreen'); hide('pendingScreen');
+            hide('loadingScreen'); hide('authScreen'); hide('pendingScreen'); hide('onboardingScreen');
             show('appRoot');
             document.getElementById('userBadgeName').innerText = `${profileRow.prenom} ${profileRow.nom}`;
             document.getElementById('userBadgeRole').innerText = profileRow.role;
@@ -1553,7 +1679,8 @@
             tbody.innerHTML = list.map(s => {
                 const commune = state.communes.find(c => c.id === s.commune_id);
                 const dept = commune ? state.departments.find(d => d.id === commune.departement_id) : null;
-                return `<tr><td class="py-2.5 px-3 font-mono">${s.code_ecole}</td><td class="py-2.5 px-3 font-bold">${s.nom}</td>
+                return `<tr><td class="py-2.5 px-3 font-mono">${s.code_ecole}</td><td class="py-2.5 px-3 font-bold">${s.nom}
+                        ${s.verifie === false ? '<span class="ml-1.5 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px] font-bold" title="Ajoutée par un utilisateur lors de son auto-affectation (non vérifiée)">Auto-déclarée</span>' : ''}</td>
                     <td class="py-2.5 px-3">${commune ? commune.nom : '-'}</td>
                     <td class="py-2.5 px-3">${dept ? dept.nom : '-'}</td>
                     <td class="py-2.5 px-3 text-center"><span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">Actif</span></td></tr>`;
@@ -2959,6 +3086,235 @@
 
             ui.closeModal('genererModeleModal');
             await this._downloadWorkbook(wb, `${modele.nom.replace(/\s+/g, '_')}_${ecole ? ecole.nom.replace(/\s+/g, '_') : ''}_${moisISO}.xlsx`);
+        },
+
+        // ================================================================
+        // SELF-ONBOARDING : l'utilisateur configure lui-même son profil
+        // (rôle, zone géographique, école) à la première connexion après
+        // confirmation de son compte — plus besoin que l'Admin l'affecte.
+        // ================================================================
+        async loadOnboardingRefData() {
+            if (state._obDepartments && state._obCommunes) return;
+            const [{ data: depts }, { data: communes }] = await Promise.all([
+                sb.from('departements').select('*').order('ordre'),
+                sb.from('communes').select('*').order('nom')
+            ]);
+            state._obDepartments = depts || [];
+            state._obCommunes = communes || [];
+        },
+
+        async renderOnboardingWizard() {
+            await this.loadOnboardingRefData();
+            state.ob = { step: 1, role: null, deptId: '', communeId: '', ecoleId: '', newEcole: false, medCommunes: [], superviseurId: '' };
+            const deptOptions = state._obDepartments.map(d => `<option value="${d.id}">${d.nom}</option>`).join('');
+            document.getElementById('obDept').innerHTML = '<option value="">— Choisir —</option>' + deptOptions;
+            document.getElementById('obMedDept').innerHTML = '<option value="">— Choisir —</option>' + deptOptions;
+            document.getElementById('obEcole').innerHTML = '';
+            document.getElementById('obMedCommunesList').innerHTML = '';
+            hide('onboardingErrorBox');
+
+            // Liste des superviseurs existants, pour que le Médiateur puisse
+            // éventuellement s'y rattacher dès son inscription.
+            const { data: superviseurs } = await sb.from('profils').select('id, nom, prenom').eq('role', 'SUPERVISEUR');
+            document.getElementById('obSuperviseur').innerHTML = '<option value="">— Je ne sais pas encore —</option>' +
+                (superviseurs || []).map(s => `<option value="${s.id}">${s.prenom} ${s.nom}</option>`).join('');
+
+            this._onboardingShowStep(1);
+        },
+
+        onboardingPopulateCommunes() {
+            const deptId = document.getElementById('obDept').value;
+            const sel = document.getElementById('obCommune');
+            const options = state._obCommunes.filter(c => c.departement_id === deptId);
+            sel.innerHTML = options.length
+                ? '<option value="">— Choisir —</option>' + options.map(c => `<option value="${c.id}">${c.nom}</option>`).join('')
+                : '<option value="">Aucune commune enregistrée</option>';
+            document.getElementById('obEcole').innerHTML = '';
+        },
+
+        async onboardingPopulateEcoles() {
+            const communeId = document.getElementById('obCommune').value;
+            const sel = document.getElementById('obEcole');
+            if (!communeId) { sel.innerHTML = ''; return; }
+            sel.innerHTML = '<option value="">Chargement…</option>';
+            const { data: ecoles } = await sb.from('ecoles').select('id, nom, code_ecole').eq('commune_id', communeId).order('nom');
+            sel.innerHTML = (ecoles && ecoles.length)
+                ? ecoles.map(e => `<option value="${e.id}">${e.nom} (${e.code_ecole})</option>`).join('')
+                : '<option value="">Aucune école enregistrée dans cette commune</option>';
+        },
+
+        onboardingPopulateCommunesForMediateur() {
+            const deptId = document.getElementById('obMedDept').value;
+            const sel = document.getElementById('obMedCommune');
+            const options = state._obCommunes.filter(c => c.departement_id === deptId);
+            sel.innerHTML = options.length
+                ? options.map(c => `<option value="${c.id}">${c.nom}</option>`).join('')
+                : '<option value="">Aucune commune enregistrée</option>';
+        },
+
+        onboardingAddCommuneMediateur() {
+            const sel = document.getElementById('obMedCommune');
+            const communeId = sel.value;
+            if (!communeId) return;
+            if (state.ob.medCommunes.find(c => c.id === communeId)) { ui.banner("Cette commune est déjà ajoutée.", "error"); return; }
+            const commune = state._obCommunes.find(c => c.id === communeId);
+            state.ob.medCommunes.push({ id: communeId, nom: commune.nom });
+            this._renderMedCommunesList();
+        },
+
+        onboardingRemoveCommuneMediateur(communeId) {
+            state.ob.medCommunes = state.ob.medCommunes.filter(c => c.id !== communeId);
+            this._renderMedCommunesList();
+        },
+
+        _renderMedCommunesList() {
+            document.getElementById('obMedCommunesList').innerHTML = state.ob.medCommunes.map(c =>
+                `<span class="bg-primary-50 text-primary-700 text-[11px] font-bold px-2.5 py-1 rounded-full">${c.nom} <button type="button" onclick="app.onboardingRemoveCommuneMediateur('${c.id}')" class="ml-1 text-primary-400 hover:text-primary-800">✕</button></span>`
+            ).join('') || '<p class="text-[11px] text-slate-400">Aucune commune ajoutée pour l\'instant.</p>';
+        },
+
+        onboardingToggleNewEcole() {
+            state.ob.newEcole = !state.ob.newEcole;
+            document.getElementById('obNewEcoleForm').classList.toggle('hidden', !state.ob.newEcole);
+            document.getElementById('obEcoleChoiceWrap').classList.toggle('hidden', state.ob.newEcole);
+            document.getElementById('obToggleNewEcoleBtn').innerHTML = state.ob.newEcole
+                ? '<i class="fa-solid fa-xmark mr-1"></i>Annuler — choisir dans la liste'
+                : '<i class="fa-solid fa-circle-plus mr-1"></i>Mon école n\'est pas dans la liste';
+        },
+
+        onboardingPickRole(role) {
+            state.ob.role = role;
+            document.querySelectorAll('.ob-role-btn').forEach(b => b.classList.remove('border-primary-500', 'bg-primary-50'));
+            this.onboardingGoStep(1);
+        },
+
+        _onboardingShowStep(step) {
+            state.ob.step = step;
+            ['obStep1', 'obStep2Ecole', 'obStep2Mediateur', 'obStep2Superviseur', 'obStep3'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            [1, 2, 3].forEach(n => document.getElementById(`obStepDot${n}`).className = `h-1.5 flex-1 rounded-full ${n <= step ? 'bg-primary-600' : 'bg-slate-200'}`);
+            hide('onboardingErrorBox');
+
+            if (step === 1) {
+                document.getElementById('obStep1').classList.remove('hidden');
+                show_('obBackBtn', false); show_('obNextBtn', false); show_('obSubmitBtn', false);
+            } else if (step === 2) {
+                const map = { ENSEIGNANT: 'obStep2Ecole', DIRECTEUR: 'obStep2Ecole', MEDIATEUR: 'obStep2Mediateur', SUPERVISEUR: 'obStep2Superviseur' };
+                document.getElementById(map[state.ob.role]).classList.remove('hidden');
+                show_('obBackBtn', true); show_('obNextBtn', true); show_('obSubmitBtn', false);
+            } else if (step === 3) {
+                document.getElementById('obStep3').classList.remove('hidden');
+                this._renderOnboardingRecap();
+                show_('obBackBtn', true); show_('obNextBtn', false); show_('obSubmitBtn', true);
+            }
+            function show_(id, visible) { document.getElementById(id).classList.toggle('hidden', !visible); }
+        },
+
+        onboardingGoStep(delta) {
+            const next = state.ob.step + delta;
+            if (delta > 0 && !this._onboardingValidateStep(state.ob.step)) return;
+            if (next < 1) return;
+            this._onboardingShowStep(next);
+        },
+
+        _onboardingValidateStep(step) {
+            if (step === 1 && !state.ob.role) {
+                document.getElementById('onboardingErrorBox').innerText = "Choisissez un rôle pour continuer.";
+                show_err();
+                return false;
+            }
+            if (step === 2 && (state.ob.role === 'ENSEIGNANT' || state.ob.role === 'DIRECTEUR')) {
+                if (state.ob.newEcole) {
+                    if (!document.getElementById('obCommune').value || !document.getElementById('obNewEcoleNom').value.trim()) {
+                        document.getElementById('onboardingErrorBox').innerText = "Choisissez une commune et donnez un nom à votre école.";
+                        show_err();
+                        return false;
+                    }
+                } else if (!document.getElementById('obEcole').value) {
+                    document.getElementById('onboardingErrorBox').innerText = "Choisissez votre école, ou cliquez sur \"Mon école n'est pas dans la liste\".";
+                    show_err();
+                    return false;
+                }
+            }
+            if (step === 2 && state.ob.role === 'MEDIATEUR' && state.ob.medCommunes.length === 0) {
+                document.getElementById('onboardingErrorBox').innerText = "Ajoutez au moins une commune de votre secteur.";
+                show_err();
+                return false;
+            }
+            return true;
+            function show_err() { document.getElementById('onboardingErrorBox').classList.remove('hidden'); }
+        },
+
+        _renderOnboardingRecap() {
+            const roleLabels = { ENSEIGNANT: 'Enseignant(e)', DIRECTEUR: "Directeur(trice) d'école", MEDIATEUR: 'Médiateur', SUPERVISEUR: 'Superviseur' };
+            let html = `<p><span class="text-slate-400">Rôle :</span> <strong>${roleLabels[state.ob.role]}</strong></p>`;
+            if (state.ob.role === 'ENSEIGNANT' || state.ob.role === 'DIRECTEUR') {
+                if (state.ob.newEcole) {
+                    html += `<p><span class="text-slate-400">École :</span> <strong>${document.getElementById('obNewEcoleNom').value.trim()}</strong> <span class="text-[11px] text-amber-600">(nouvelle, sera ajoutée au référentiel)</span></p>`;
+                } else {
+                    const ecoleSel = document.getElementById('obEcole');
+                    html += `<p><span class="text-slate-400">École :</span> <strong>${ecoleSel.options[ecoleSel.selectedIndex] ? ecoleSel.options[ecoleSel.selectedIndex].text : '-'}</strong></p>`;
+                }
+            } else if (state.ob.role === 'MEDIATEUR') {
+                html += `<p><span class="text-slate-400">Communes :</span> <strong>${state.ob.medCommunes.map(c => c.nom).join(', ')}</strong></p>`;
+                const supSel = document.getElementById('obSuperviseur');
+                if (supSel.value) html += `<p><span class="text-slate-400">Superviseur :</span> <strong>${supSel.options[supSel.selectedIndex].text}</strong></p>`;
+            } else if (state.ob.role === 'SUPERVISEUR') {
+                html += `<p class="text-slate-500 text-xs">Les médiateurs vous rejoindront automatiquement lors de leur propre configuration.</p>`;
+            }
+            document.getElementById('obRecap').innerHTML = html;
+        },
+
+        async onboardingSubmit() {
+            const btn = document.getElementById('obSubmitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Enregistrement…';
+            try {
+                let ecoleId = null;
+
+                if (state.ob.role === 'ENSEIGNANT' || state.ob.role === 'DIRECTEUR') {
+                    if (state.ob.newEcole) {
+                        const communeId = document.getElementById('obCommune').value;
+                        const nom = document.getElementById('obNewEcoleNom').value.trim();
+                        const codeSaisi = document.getElementById('obNewEcoleCode').value.trim();
+                        const code = codeSaisi || `AUTO-${Date.now().toString(36).toUpperCase()}`;
+                        const { data: nouvelleEcole, error: errEcole } = await sb.from('ecoles')
+                            .insert({ commune_id: communeId, code_ecole: code, nom, actif: true, cree_par: state.profile.id, verifie: false })
+                            .select().maybeSingle();
+                        if (errEcole) throw errEcole;
+                        ecoleId = nouvelleEcole.id;
+                    } else {
+                        ecoleId = document.getElementById('obEcole').value;
+                    }
+                }
+
+                const payload = {
+                    role: state.ob.role,
+                    onboarding_complete: true
+                };
+                if (ecoleId) payload.ecole_id = ecoleId;
+                if (state.ob.role === 'MEDIATEUR') {
+                    const supSel = document.getElementById('obSuperviseur').value;
+                    if (supSel) payload.superviseur_id = supSel;
+                }
+
+                const { error: errProfil } = await sb.from('profils').update(payload).eq('id', state.profile.id);
+                if (errProfil) throw errProfil;
+
+                if (state.ob.role === 'MEDIATEUR' && state.ob.medCommunes.length) {
+                    const rows = state.ob.medCommunes.map(c => ({ mediateur_id: state.profile.id, commune_id: c.id }));
+                    const { error: errCommunes } = await sb.from('mediateur_communes').upsert(rows, { onConflict: 'mediateur_id,commune_id' });
+                    if (errCommunes) throw errCommunes;
+                }
+
+                ui.banner("Configuration terminée, bienvenue sur CANTINE DATA !");
+                hide('onboardingScreen');
+                await this.boot();
+            } catch (err) {
+                document.getElementById('onboardingErrorBox').innerText = "Erreur : " + (err.message || err);
+                document.getElementById('onboardingErrorBox').classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i>Terminer et accéder à l\'application';
+            }
         }
     };
 
@@ -3015,10 +3371,10 @@
             hide('loadingScreen');
             hide('connectionErrorScreen');
             if (session) {
-                hide('authScreen'); hide('pendingScreen');
+                hide('authScreen'); hide('pendingScreen'); hide('onboardingScreen');
                 app.boot();
             } else {
-                hide('appRoot'); hide('pendingScreen');
+                hide('appRoot'); hide('pendingScreen'); hide('onboardingScreen');
                 show('authScreen');
                 ui.setAuthTab('login');
             }
